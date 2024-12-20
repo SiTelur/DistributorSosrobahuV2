@@ -70,7 +70,7 @@
                                         class="bg-green-600 text-white font-bold py-1 px-3 rounded hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 text-xs">Lihat</button>
                                 </td>
                                 <td class="p-2 font-semibold">
-                                    Rp.{{ number_format($totalPricePerAgens[$akunDistributors['id_user_distributor']] ?? 0, 0, ',', '.') }}
+                                    Rp.{{ number_format($totalPricePerDistributors[$akunDistributors['id_user_distributor']] ?? 0, 0, ',', '.') }}
                                 </td>
                                 <td class="p-2">{{ $akunDistributors['nama_bank'] }}</td> <!-- Kolom Nama Bank -->
                                 <td class="p-2">{{ $akunDistributors['no_rek'] }}</td> <!-- Kolom No Rekening -->
