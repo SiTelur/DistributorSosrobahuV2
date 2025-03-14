@@ -2,6 +2,8 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\PabrikLoginAPIController;
+use App\Http\Controllers\BarangPabrikController;
 
 /*
 |--------------------------------------------------------------------------
@@ -14,6 +16,11 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
+Route::post('/pabrik/login', [PabrikLoginAPIController::class, 'loginPabrik']);
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
+});
+
+Route::middleware(['auth:sanctum', 'role:pabrik'])->group(function () {
+    Route::get('/pabrik/dashboard', [BarangPabrikController::class, 'stockbarangAPI']);
 });
