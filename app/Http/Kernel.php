@@ -73,5 +73,6 @@ class Kernel extends HttpKernel
         'auth.distributor' => \App\Http\Middleware\AuthenticateDistributor::class,
         'auth.pabrik' => \App\Http\Middleware\AuthenticatePabrik::class,
         'role' => \App\Http\Middleware\AuthenticateRole::class,
+        
     ];
 }

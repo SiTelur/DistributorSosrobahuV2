@@ -8,6 +8,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 
 class UserPabrik extends Authenticatable
 {
+    
     use HasApiTokens,HasFactory;
 
     // Nama tabel yang digunakan oleh model
