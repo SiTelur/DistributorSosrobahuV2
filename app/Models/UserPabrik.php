@@ -2,12 +2,14 @@
 
 namespace App\Models;
 
+use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 
 class UserPabrik extends Authenticatable
 {
-    use HasFactory;
+    
+    use HasApiTokens,HasFactory;
 
     // Nama tabel yang digunakan oleh model
     protected $table = 'user_pabrik';

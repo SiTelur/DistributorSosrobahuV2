@@ -14,35 +14,35 @@ class RestockPabrikController extends Controller
 {
     // Fitur Riwayat Pabrik
     public function index(Request $request)
-{
-    // Ambil input pencarian
-    $search = $request->input('search');
+    {
+        // Ambil input pencarian
+        $search = $request->input('search');
 
-    // Query awal untuk pencarian dengan kondisi sesuai input
-    $restockPabriks = RestockPabrik::query();
+        // Query awal untuk pencarian dengan kondisi sesuai input
+        $restockPabriks = RestockPabrik::query();
 
-    if ($search) {
-        // Filter data sesuai dengan format yang diinginkan
-        $restockPabriks->where(function ($query) use ($search) {
-            $query->where(DB::raw("CONCAT('RST1234', id_restock)"), 'like', "%{$search}%")
-                ->orWhere(DB::raw("DATE_FORMAT(tanggal, '%d/%m/%Y')"), 'like', "%{$search}%")
-                ->orWhere(DB::raw("CONCAT(jumlah, ' Karton')"), 'like', "%{$search}%");
-        });
+        if ($search) {
+            // Filter data sesuai dengan format yang diinginkan
+            $restockPabriks->where(function ($query) use ($search) {
+                $query->where(DB::raw("CONCAT('RST1234', id_restock)"), 'like', "%{$search}%")
+                    ->orWhere(DB::raw("DATE_FORMAT(tanggal, '%d/%m/%Y')"), 'like', "%{$search}%")
+                    ->orWhere(DB::raw("CONCAT(jumlah, ' Karton')"), 'like', "%{$search}%");
+            });
+        }
+
+        // Order by dan pagination khusus untuk hasil pencarian
+        $restockPabriks = $restockPabriks->orderBy('id_restock', 'desc')->paginate(10)->withQueryString();
+
+        // Mengonversi tanggal ke format Carbon
+        foreach ($restockPabriks as $restockPabrik) {
+            $restockPabrik->tanggal = Carbon::parse($restockPabrik->tanggal);
+        }
+
+        // Mengirim data pesanan ke view
+        return view('pabrik.riwayat-restock', compact('restockPabriks'));
+        // Menampilkan data menggunakan json
+        //return response()->json($restockPabriks);
     }
-
-    // Order by dan pagination khusus untuk hasil pencarian
-    $restockPabriks = $restockPabriks->orderBy('id_restock', 'desc')->paginate(10)->withQueryString();
-
-     // Mengonversi tanggal ke format Carbon
-    foreach ($restockPabriks as $restockPabrik) {
-        $restockPabrik->tanggal = Carbon::parse($restockPabrik->tanggal);
-    }
-
-    // Mengirim data pesanan ke view
-    return view('pabrik.riwayat-restock', compact('restockPabriks'));
-    // Menampilkan data menggunakan json
-    //return response()->json($restockPabriks);
-}
 
     public function notaPabrik($idNota)
     {
@@ -151,5 +151,62 @@ class RestockPabrikController extends Controller
 
         // Redirect or return a response
         return redirect()->route('riwayatPabrik')->with('success', 'Pesanan berhasil dikirim!');
+    }
+
+    public function storeAPI(Request $request)
+    {
+        $request->validate([
+            'quantities' => 'required|array',
+            'quantities.*' => 'required|integer|min:1',
+        ]);
+
+        if (empty($request->quantities)) {
+            return response()->json(['message' => 'No products to restock', 'status' => 'error'], 400);
+        }
+
+        $userId = $request->user()->currentAccessToken()->user_id;
+
+        // Menghitung total jumlah dari semua produk yang direstock
+        $totalItems = array_sum($request->quantities);
+
+        // Menyimpan data ke dalam tabel RestockPabrik
+        $restockData = [
+            'id_user_pabrik' => $userId,
+            'jumlah' => $totalItems,
+            'tanggal' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ];
+
+        // Simpan data RestockPabrik dan ambil ID yang baru
+        $restockPabrik = RestockPabrik::create($restockData);
+        $id_restock = $restockPabrik->id_restock;
+
+        $restocks = [];
+        foreach ($request->input('quantities') as $productId => $quantity) {
+            // Pastikan produk ada dalam master_barang
+            $product = DB::table('master_barang')->where('id_master_barang', $productId)->first();
+
+            if ($product) {
+                $restocks[] = [
+                    'id_restock' => $id_restock,
+                    'id_user_pabrik' => 1,
+                    'id_master_barang' => $productId,
+                    'jumlah_produk' => $quantity,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+            }
+        }
+
+        // Memasukkan data ke dalam tabel RestockDetailPabrik
+        RestockDetailPabrik::insert($restocks);
+
+        // Redirect or return a response
+        return response()->json([
+            'message' => 'Pesanan berhasil dikirim!',
+            'status' => 'success',
+            'order' => $id_restock // Assuming $order contains the order details
+        ]);
     }
 }

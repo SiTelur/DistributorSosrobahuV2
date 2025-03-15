@@ -15,13 +15,13 @@ class PesananMasukPabrikController extends Controller
     public function index()
     {
         // Mengambil semua pesanan dan mengonversi tanggal ke format Carbon
-        $pesananMasuks =OrderDistributor::orderBy('id_order', 'desc')->paginate(10);
+        $pesananMasuks = OrderDistributor::orderBy('id_order', 'desc')->paginate(10);
         // Mengonversi tanggal ke format Carbon
         foreach ($pesananMasuks as $pesananMasuk) {
             $pesananMasuk->tanggal = Carbon::parse($pesananMasuk->tanggal);
-         // Mengambil nama user sales berdasarkan id_user_sales
-         $namaDistributor = DB::table('user_distributor')->where('id_user_distributor', $pesananMasuk->id_user_distributor)->first();
-         $pesananMasuk->nama_distributor = $namaDistributor ? $namaDistributor->nama_lengkap : 'Tidak Ditemukan';
+            // Mengambil nama user sales berdasarkan id_user_sales
+            $namaDistributor = DB::table('user_distributor')->where('id_user_distributor', $pesananMasuk->id_user_distributor)->first();
+            $pesananMasuk->nama_distributor = $namaDistributor ? $namaDistributor->nama_lengkap : 'Tidak Ditemukan';
         }
 
         // Mengirim data yang dikelompokkan dan total omset ke view
@@ -87,7 +87,7 @@ class PesananMasukPabrikController extends Controller
     public function editStatus($id)
     {
         // Mengambil data pesanan berdasarkan ID
-        $pesanMasukPabrik= OrderDistributor::findOrFail($id);
+        $pesanMasukPabrik = OrderDistributor::findOrFail($id);
 
         // Mengirim data pesanan ke view
         return view('pabrik.editStatusPesanan', compact('pesanMasukPabrik'));
@@ -109,5 +109,22 @@ class PesananMasukPabrikController extends Controller
 
         // Redirect atau kembali dengan pesan sukses
         return redirect()->route('pesananMasukPabrik')->with('success', 'Status pesanan berhasil diperbarui!');
+    }
+
+    public function pesananMasukPabrikAPI()
+    {
+        // Mengambil semua pesanan dan mengonversi tanggal ke format Carbon
+        $pesananMasuks = OrderDistributor::orderBy('id_order', 'desc')->paginate(10);
+        // Mengonversi tanggal ke format Carbon
+        foreach ($pesananMasuks as $pesananMasuk) {
+            $pesananMasuk->tanggal = Carbon::parse($pesananMasuk->tanggal);
+            // Mengambil nama user sales berdasarkan id_user_sales
+            $namaDistributor = DB::table('user_distributor')->where('id_user_distributor', $pesananMasuk->id_user_distributor)->first();
+            $pesananMasuk->nama_distributor = $namaDistributor ? $namaDistributor->nama_lengkap : 'Tidak Ditemukan';
+        }
+
+        // Mengirim data yang dikelompokkan dan total omset ke view
+        // return view('pabrik.transaksi', compact('pesananMasuks'));
+        return response()->json(data: $pesananMasuks);
     }
 }

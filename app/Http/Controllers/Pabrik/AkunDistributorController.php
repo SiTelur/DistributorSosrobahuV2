@@ -117,8 +117,8 @@ class AkunDistributorController extends Controller
         }
 
         // ini juga Minta tolong tambahin edit formnya buat nama bank sama no rek
-         $distributor->nama_bank = $request->nama_bank;
-         $distributor->no_rek = $request->no_rek;
+        $distributor->nama_bank = $request->nama_bank;
+        $distributor->no_rek = $request->no_rek;
 
         // Menyimpan perubahan
         $distributor->save();
@@ -142,5 +142,31 @@ class AkunDistributorController extends Controller
         } else {
             return redirect()->route('pengaturanDistributor')->with('error', 'User tidak ditemukan.');
         }
+    }
+
+    public function showDistributorAPI(Request $request)
+    {
+        $search = $request->input('search');
+        // Query distributors with sales total
+        $akunDistributor = UserDistributor::query()
+            ->withSum('orderDistributors', 'total') // Get total sales per distributor
+            ->when($search, function ($query) use ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('nama_lengkap', 'like', '%' . $search . '%')
+                        ->orWhere('username', 'like', '%' . $search . '%')
+                        ->orWhere('no_telp', 'like', '%' . $search . '%')
+                        ->orWhere('status', 'like', '%' . $search . '%')
+                        ->orWhere('nama_bank', 'like', '%' . $search . '%')
+                        ->orWhere('no_rek', 'like', '%' . $search . '%');
+                });
+            })
+            ->orderByDesc('order_distributors_sum_total') // Sort by total sales
+            ->paginate(10); // Pagination
+
+        return response()->json([
+            'success' => true,
+            'message' => 'List of distributors',
+            'data' => $akunDistributor
+        ]);
     }
 }
