@@ -10,7 +10,9 @@ class AuthenticateRole
 {
   public function handle(Request $request, Closure $next, $role): Response
   {
+
     if (!$request->user() || !$request->user()->tokenCan('role:' . $role)) {
+      info(auth()->user()->id);
       return response()->json(['message' => 'Unauthorized'], 403);
     }
 

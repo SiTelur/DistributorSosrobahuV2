@@ -4,6 +4,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PabrikLoginAPIController;
 use App\Http\Controllers\BarangPabrikController;
+use App\Http\Controllers\Pabrik\AkunDistributorController;
+use App\Http\Controllers\Pabrik\PesananMasukPabrikController;
 
 /*
 |--------------------------------------------------------------------------
@@ -23,4 +25,7 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 
 Route::middleware(['auth:sanctum', 'role:pabrik'])->group(function () {
     Route::get('/pabrik/dashboard', [BarangPabrikController::class, 'stockbarangAPI']);
+    Route::get('/pabrik/distributor', [AkunDistributorController::class, 'showDistributorAPI']);
+    Route::get('/pabrik/pesananMasuk', [PesananMasukPabrikController::class, 'pesananMasukPabrikAPI']);
+    Route::get('/pabrik/restock', [BarangPabrikController::class, 'restockBarangAPI']);
 });
