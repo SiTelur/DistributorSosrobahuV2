@@ -34,7 +34,7 @@ class LoginDistributorController extends Controller
                 // Simpan nama_lengkap ke dalam session
                 session(['nama_lengkap' => $user->nama_lengkap]);
                 session(['id_user_distributor' => $user->id_user_distributor]);
-                session(['role'=>  'distributor']);
+                session(['role' =>  'distributor']);
 
                 // Redirect ke dashboard atau halaman lain
                 return redirect()->intended('/distributor/dashboard')->with('success', 'Selamat datang, ' . $user->nama_lengkap);
@@ -55,22 +55,22 @@ class LoginDistributorController extends Controller
     {
         // Ambil ID distributor yang login dari session
         $id_user_distributor = session('id_user_distributor');
-    
+
         if (!$id_user_distributor) {
             return response()->json([
                 'message' => 'ID distributor tidak ditemukan dalam session.',
                 'peringkat' => null,
             ], 404);
         }
-    
+
         // Ambil semua distributor dengan total penjualan
         $akunDistributor = UserDistributor::withSum('orderDistributors', 'total')
             ->orderBy('order_distributors_sum_total', 'desc')
             ->get();
-    
+
         // Buat array total penjualan dengan ID distributor sebagai kunci
         $totalPricePerDistributor = $akunDistributor->pluck('order_distributors_sum_total', 'id_user_distributor')->toArray();
-    
+
         // Periksa apakah ID distributor login ada dalam array
         if (!array_key_exists($id_user_distributor, $totalPricePerDistributor)) {
             return response()->json([
@@ -78,20 +78,20 @@ class LoginDistributorController extends Controller
                 'peringkat' => null,
             ], 404);
         }
-    
+
         // Hitung peringkat distributor login
         $peringkat = array_search($id_user_distributor, array_keys($totalPricePerDistributor)) + 1;
-    
+
         // Simpan peringkat ke dalam session
         session(['peringkat' => $peringkat]);
-    
+
         // Return data dalam format JSON
         return response()->json([
             'peringkat' => $peringkat,
             'totalPenjualan' => $totalPricePerDistributor[$id_user_distributor],
         ]);
     }
-    
+
 
     public function logoutDistributor()
     {
@@ -101,5 +101,34 @@ class LoginDistributorController extends Controller
         session()->flush();
         // Redirect ke halaman login
         return redirect()->route('halamanLoginDistributor')->with('success', 'Anda telah berhasil logout.');
+    }
+
+    public function loginDistributorAPI(Request $request)
+    {
+        $request->validate([
+            'username' => 'required|string',
+            'password' => 'required|string',
+        ]);
+
+        $user = UserDistributor::where('username', $request->username)->first();
+
+        if ($user === null || !Hash::check($request->password, $user->password)) {
+            return response()->json(['message' => 'Username atau password salah.'], 401);
+        }
+
+        $token = $user->createToken('pabrik_token', ['role:distributor']);
+        $accessToken = $token->accessToken;
+
+        $accessToken->forceFill(['user_id' => $user->id_user_distributor])->save();
+
+        return response()->json([
+            'message' => 'Login berhasil.',
+            'token' => $token,
+            'user' => [
+                'id' => $user->id_user_distributor,
+                'nama_lengkap' => $user->nama_lengkap,
+                'role' => 'distributor'
+            ]
+        ]);
     }
 }
