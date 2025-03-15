@@ -316,9 +316,6 @@ class BarangPabrikController extends Controller
     public function restockBarangAPI()
     {
         $barangPabriks = MasterBarang::all();
-        $namaRokokList = [];
-        $gambarRokokList = [];
-
         // Loop through each BarangPabrik item
         foreach ($barangPabriks as $barangPabrik) {
             // Get the id_master_barang for the current BarangPabrik item
@@ -340,6 +337,6 @@ class BarangPabrikController extends Controller
 
         // Pass both barangPabriks and namaRokokList to the view
         // return view('distributor.pesan', compact('barangPabriks', 'namaRokokList', 'gambarRokokList'));
-        return response()->json([$barangPabriks, $namaRokokList, $gambarRokokList]);
+        return response()->json([$barangPabriks]);
     }
 }
