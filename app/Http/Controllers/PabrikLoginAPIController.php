@@ -22,7 +22,7 @@ class PabrikLoginAPIController extends Controller
             return response()->json(['message' => 'Username atau password salah.'], 401);
         }
 
-        $token = $user->createToken('pabrik_token', ['role:pabrik']);
+        $token = $user->createToken('sosrobahu_token', ['role:pabrik']);
         $accessToken = $token->accessToken;
 
         $accessToken->forceFill(['user_id' => $user->id_user_pabrik])->save();

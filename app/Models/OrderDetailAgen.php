@@ -9,17 +9,17 @@ class OrderDetailAgen extends Model
 {
     use HasFactory;
 
-     // Tentukan nama tabel yang terkait dengan model ini
-     protected $table = 'order_detail_agen';
+    // Tentukan nama tabel yang terkait dengan model ini
+    protected $table = 'order_detail_agen';
 
-     // Tentukan primary key tabel jika tidak menggunakan default 'id'
-     protected $primaryKey = 'id_detail_agen';
- 
-     // Jika primary key bukan auto increment
-     public $incrementing = true;
- 
-     // Jika primary key bukan integer
-     protected $keyType = 'int';
+    // Tentukan primary key tabel jika tidak menggunakan default 'id'
+    protected $primaryKey = 'id_detail_agen';
+
+    // Jika primary key bukan auto increment
+    public $incrementing = true;
+
+    // Jika primary key bukan integer
+    protected $keyType = 'int';
 
     // Kolom yang dapat diisi
     protected $fillable = [
@@ -43,10 +43,19 @@ class OrderDetailAgen extends Model
         'jumlah_harga_item' => 'integer',
     ];
 
-     // Menyediakan fungsi untuk relasi ke OrderSale
-     public function orderSale()
-     {
-         return $this->belongsTo(OrderAgen::class, 'id_order', 'id_order');
-     }
-    
+    // Menyediakan fungsi untuk relasi ke OrderSale
+    public function orderSale()
+    {
+        return $this->belongsTo(OrderAgen::class, 'id_order', 'id_order');
+    }
+
+    public function product()
+    {
+        return $this->belongsTo(MasterBarang::class, 'id_master_barang', 'id_master_barang');
+    }
+
+    public function harga()
+    {
+        return $this->belongsTo(BarangDistributor::class, 'id_master_barang', 'id_master_barang');
+    }
 }

@@ -28,4 +28,9 @@ class OrderAgen extends Model
         'bukti_transfer',
         'status_pemesanan'
     ];
+
+    public function userAgen()
+    {
+        return $this->belongsTo(UserAgen::class, 'id_user_agen', 'id_user_agen');
+    }
 }
