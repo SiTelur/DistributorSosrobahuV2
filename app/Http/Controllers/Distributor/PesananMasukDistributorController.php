@@ -115,4 +115,109 @@ class PesananMasukDistributorController extends Controller
         // Redirect atau kembali dengan pesan sukses
         return redirect()->route('pesananMasukDistributor')->with('success', 'Status pesanan berhasil diperbarui!');
     }
+
+    public function pesananMasukDistributorAPI(Request $request)
+    {
+        // Mengambil semua pesanan dan mengonversi tanggal ke format Carbon
+        $id_user_distributor = $request->user()->currentAccessToken()->user_id;
+        $pesananMasuks = OrderAgen::where('id_user_distributor', $id_user_distributor)
+            ->orderByDesc('id_order')
+            ->with('userAgen:id_user_agen,nama_lengkap') // Eager load userAgen
+            ->paginate(10);
+
+        // Format response as JSON
+        return response()->json([
+            'pesananMasuks' => $pesananMasuks->map(function ($pesanan) {
+                return [
+                    'id_order' => $pesanan->id_order,
+                    'tanggal' => Carbon::parse($pesanan->tanggal)->format('Y-m-d'),
+                    'nama_agen' => $pesanan->userAgen->nama_lengkap ?? 'Tidak Ditemukan',
+                    'total' => $pesanan->total,
+                    'status_pemesanan' => $pesanan->status_pemesanan,
+                ];
+            }),
+            'pagination' => [
+                'current_page' => $pesananMasuks->currentPage(),
+                'last_page' => $pesananMasuks->lastPage(),
+                'per_page' => $pesananMasuks->perPage(),
+                'total' => $pesananMasuks->total(),
+            ],
+        ]);
+    }
+
+    public function detailPesananMasukDistributorAPI($idPesanan)
+    {
+        Carbon::setLocale('id');
+
+        // Fetch OrderAgen and related data in one query using eager loading
+        $orderAgen = OrderAgen::with('userAgen')->where('id_order', $idPesanan)->firstOrFail();
+
+        // Fetch order details with related product & price info
+        $orderDetails = OrderDetailAgen::where('id_order', $idPesanan)
+            ->with(['product:id_master_barang,nama_rokok', 'harga:id_master_barang,harga_distributor'])
+            ->get();
+
+        // If there's no order, return error response
+        if (!$orderAgen) {
+            return response()->json(['error' => 'Order not found'], 404);
+        }
+
+        // Prepare items for the response
+        $itemNota = $orderDetails->map(function ($detail) {
+            return [
+                'nama_rokok' => $detail->product->nama_rokok ?? 'Tidak Ditemukan',
+                'harga_satuan' => $detail->harga->harga_distributor ?? 0,
+                'jumlah_item' => $detail->jumlah_produk ?? 0,
+                'jumlah_harga' => $detail->jumlah_harga_item ?? 0,
+            ];
+        });
+
+        // Build final response
+        $pesanMasukDistributor = [
+            'tanggal' => Carbon::parse($orderAgen->tanggal)->translatedFormat('d F Y'),
+            'id_order' => $orderAgen->id_order,
+            'nama_agen' => $orderAgen->userAgen->nama_lengkap ?? 'Tidak Ditemukan',
+            'no_telp' => $orderAgen->userAgen->no_telp ?? 'Tidak Ditemukan',
+            'total_item' => $orderAgen->jumlah,
+            'total_harga' => $orderAgen->total,
+            'item_nota' => $itemNota,
+            'gambar' => $orderAgen->bukti_transfer,
+            'status' => $orderAgen->status_pemesanan,
+        ];
+
+        // Return JSON response
+        return response()->json($pesanMasukDistributor);
+    }
+
+    public function updateStatusPesananMasukAPI(Request $request, $idPesanan)
+    {
+        // Validasi input
+        $validated = $request->validate([
+            'status' => 'required|integer|in:0,1,2',
+        ]);
+
+        // Cari pesanan berdasarkan ID
+        $pesanan = OrderAgen::find($idPesanan);
+
+        // Jika pesanan tidak ditemukan, kembalikan respons JSON
+        if (!$pesanan) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Pesanan tidak ditemukan.'
+            ], 404);
+        }
+
+        // Update status pesanan
+        $pesanan->update(['status_pemesanan' => $validated['status']]);
+
+        // Kembalikan response JSON
+        return response()->json([
+            'success' => true,
+            'message' => 'Status pesanan berhasil diperbarui.',
+            'data' => [
+                'id_order' => $pesanan->id_order,
+                'status_pemesanan' => $pesanan->status_pemesanan,
+            ]
+        ]);
+    }
 }

@@ -93,19 +93,19 @@ class OrderDistributorController extends Controller
         $namaRokokList = [];
 
         // Ambil informasi pabrik (asumsikan hanya ada satu pabrik)
-    $getPabrik = UserPabrik::first(); // Mengambil data pabrik pertama
+        $getPabrik = UserPabrik::first(); // Mengambil data pabrik pertama
 
-    // Pastikan pabrik ditemukan
-    if (!$getPabrik) {
-        return back()->withErrors(['message' => 'Pabrik tidak ditemukan.']);
-    }
+        // Pastikan pabrik ditemukan
+        if (!$getPabrik) {
+            return back()->withErrors(['message' => 'Pabrik tidak ditemukan.']);
+        }
 
-    // Ambil informasi pabrik
-    $infoPabrik = [
-        'nama_pabrik' => $getPabrik->nama_lengkap,
-        'no_rek' => $getPabrik->no_rek,
-        'nama_bank' => $getPabrik->nama_bank,
-    ];
+        // Ambil informasi pabrik
+        $infoPabrik = [
+            'nama_pabrik' => $getPabrik->nama_lengkap,
+            'no_rek' => $getPabrik->no_rek,
+            'nama_bank' => $getPabrik->nama_bank,
+        ];
 
         // Loop through each selected product ID
         foreach ($selectedProductIds as $barangPabrik) {
@@ -232,7 +232,7 @@ class OrderDistributorController extends Controller
         }
 
         $notaDistributor = [
-            'tanggal' => Carbon::parse( $orderDistributor->tanggal)->translatedFormat('d F Y'),
+            'tanggal' => Carbon::parse($orderDistributor->tanggal)->translatedFormat('d F Y'),
             'id_order' => $orderDistributor->id_order,
             'nama_pabrik' => $namaPabrik->nama_lengkap,
             'no_pabrik' => $namaPabrik->no_telp,
@@ -248,5 +248,108 @@ class OrderDistributorController extends Controller
 
         //Menampilkan hasil nota format json
         // return response()->json($notaDistributor);
+    }
+
+    public function storeOrderAPI(Request $request)
+    {
+        try {
+            // Validate request
+            $validated = $request->validate([
+                'total_items' => 'required|integer|min:1',
+                'total_amount' => 'required|numeric|min:1',
+                'quantities' => 'required|array', // Ensure quantities is an array
+                'quantities.*.id_master_barang' => 'required|integer|exists:master_barang,id_master_barang',
+                'quantities.*.quantity' => 'required|integer|min:1',
+                'payment_proof' => 'nullable|image|mimes:jpeg,png,jpg|max:2048'
+            ]);
+
+            // Handle file upload
+            $path = $request->hasFile('payment_proof')
+                ? $request->file('payment_proof')->store('bukti_transfer', 'public')
+                : null;
+
+            // Get distributor ID from token
+            $id_user_distributor = $request->user()->currentAccessToken()->user_id;
+
+            // Start transaction to ensure data consistency
+            DB::beginTransaction();
+
+            // Create order and get its ID
+            $order = OrderDistributor::create([
+                'id_user_distributor' => $id_user_distributor,
+                'jumlah' => $request->total_items,
+                'total' => $request->total_amount,
+                'tanggal' => now(),
+                'bukti_transfer' => $path,
+                'status_pemesanan' => 0, // 0 = Pending
+            ]);
+
+            // Prepare order details for bulk insert
+            $orderDetails = [];
+            foreach ($request->input('quantities') as $productId => $quantity) {
+                $product = DB::table('master_barang')->where('id_master_barang', $productId)->first();
+                if (!$product) {
+                    throw new \Exception("Produk dengan ID $productId tidak ditemukan.");
+                }
+
+                $orderDetails[] = [
+                    'id_order' => $order->id_order,
+                    'id_user_pabrik' => 1,
+                    'id_user_distributor' => $id_user_distributor,
+                    'id_master_barang' => $productId,
+                    'jumlah_produk' => $quantity,
+                    'jumlah_harga_item' => $product->harga_karton_pabrik * $quantity,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+            }
+
+            // Bulk insert order details
+            OrderDetailDistributor::insert($orderDetails);
+
+            // Commit transaction
+            DB::commit();
+
+            // Return JSON response
+            return response()->json([
+                'success' => true,
+                'message' => 'Pesanan berhasil dikirim!',
+                'order' => $order,
+                'order_details' => $orderDetails,
+            ], 201);
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan saat memproses pesanan.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function listRiwayatOrderAPI(Request $request)
+    {
+        $id_user_distributor = $request->user()->currentAccessToken()->user_id;
+
+        // Ambil data pesanan dengan format tanggal yang sudah dikonversi
+        $orderDistributors = OrderDistributor::where('id_user_distributor', $id_user_distributor)
+            ->orderByDesc('id_order')
+            ->paginate(10)
+            ->through(fn($order) => [
+                'id_order' => $order->id_order,
+                'jumlah' => $order->jumlah,
+                'total' => $order->total,
+                'tanggal' => Carbon::parse($order->tanggal)->translatedFormat('d F Y'),
+                'status_pemesanan' => $order->status_pemesanan,
+                'bukti_transfer' => $order->bukti_transfer,
+            ]);
+
+        // Mengembalikan data sebagai JSON response
+        return response()->json([
+            'success' => true,
+            'message' => 'Riwayat pesanan berhasil diambil.',
+            'data' => $orderDistributors
+        ]);
     }
 }

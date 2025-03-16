@@ -116,7 +116,7 @@ class LoginDistributorController extends Controller
             return response()->json(['message' => 'Username atau password salah.'], 401);
         }
 
-        $token = $user->createToken('pabrik_token', ['role:distributor']);
+        $token = $user->createToken('sosrobahu_token', ['role:distributor']);
         $accessToken = $token->accessToken;
 
         $accessToken->forceFill(['user_id' => $user->id_user_distributor])->save();
