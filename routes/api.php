@@ -54,3 +54,5 @@ Route::middleware(['auth:sanctum', 'role:distributor'])->group(function () {
     Route::post("/distributor/order", [OrderDistributorController::class, 'storeOrderAPI']);
     Route::get("/distributor/riwayatOrder", [OrderDistributorController::class, 'listRiwayatOrderAPI']);
 });
+
+Route::middleware(['auth:sanctum', 'role:agen'])->group(function () {});
