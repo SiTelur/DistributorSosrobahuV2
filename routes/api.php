@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Agen\LoginAgenController;
+use App\Http\Controllers\Agen\OrderAgenController;
+use App\Http\Controllers\Agen\PesananMasukAgenController;
 use App\Http\Controllers\BarangAgenController;
 use App\Http\Controllers\BarangDistributorController;
 use Illuminate\Http\Request;
@@ -60,4 +62,11 @@ Route::middleware(['auth:sanctum', 'role:distributor'])->group(function () {
 Route::post('/agen/login', [LoginAgenController::class, 'loginAgenAPI']);
 Route::middleware(['auth:sanctum', 'role:agen'])->group(function () {
     Route::get('/agen/dashboard', [BarangAgenController::class, 'stockbarangAPI']);
+
+    Route::get('/agen/pesananMasuk', [PesananMasukAgenController::class, 'pesananMasukAgenAPI']);
+    Route::get('/agen/pesananMasuk/{idPesanan}', [PesananMasukAgenController::class, 'detailPesananMasukAgenAPI']);
+    Route::post('/agen/pesananMasuk/{idPesanan}', [PesananMasukAgenController::class, 'updateStatusPesananAPI']);
+
+    Route::post('/agen/order', [OrderAgenController::class, 'storeOrder']);
+    Route::get('/agen/riwayatOrder', [OrderAgenController::class, 'riwayatOrderAPI']);
 });

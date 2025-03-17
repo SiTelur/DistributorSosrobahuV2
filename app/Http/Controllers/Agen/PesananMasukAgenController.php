@@ -110,4 +110,94 @@ class PesananMasukAgenController extends Controller
         // Redirect atau kembali dengan pesan sukses
         return redirect()->route('pesananMasuk')->with('success', 'Status pesanan berhasil diperbarui!');
     }
+
+    public function pesananMasukAgenAPI(Request $request)
+    {
+        $id_user_agen = $request->user()->currentAccessToken()->user_id;
+        // Mengambil pesanan dengan mengurutkan berdasarkan ID terbesar
+
+        $pesananMasuks = OrderSale::with('userSales')
+            ->where('id_user_agen', $id_user_agen)
+            ->orderByDesc('id_order')
+            ->paginate(10);
+
+        // Transformasi data sebelum dikembalikan sebagai JSON
+        $pesananMasuks->transform(function ($pesanan) {
+            return [
+                'id_order' => $pesanan->id_order,
+                'tanggal' => Carbon::parse($pesanan->tanggal)->format('d F Y'),
+                'nama_sales' => optional($pesanan->userSales)->nama_lengkap ?? 'Tidak Ditemukan',
+                'total_harga' => $pesanan->total_harga,
+                'status_pemesanan' => $pesanan->status_pemesanan,
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Data transaksi agen berhasil diambil.',
+            'data' => $pesananMasuks
+        ]);
+    }
+
+    public function detailPesananMasukAgenAPI($idPesanan)
+    {
+        Carbon::setLocale('id');
+
+        // Mengambil data pesanan dan detailnya dengan eager loading
+        $orderSales = OrderSale::with('userSales')->findOrFail($idPesanan);
+        $orderDetailSales = OrderDetailSales::where('id_order', $idPesanan)->get();
+
+        // Ambil data item pesanan secara batch untuk menghindari N+1 Query
+        $idMasterBarang = $orderDetailSales->pluck('id_master_barang')->toArray();
+        $products = DB::table('master_barang')->whereIn('id_master_barang', $idMasterBarang)->pluck('nama_rokok', 'id_master_barang');
+
+        // Looping untuk membangun item pesanan
+        $itemNota = $orderDetailSales->map(function ($barangSales) use ($products) {
+            return [
+                'nama_rokok' => $products[$barangSales->id_master_barang] ?? 'Tidak Ditemukan',
+                'harga_satuan' => $barangSales->harga_tetap_nota,
+                'jumlah_item' => $barangSales->jumlah_produk,
+                'jumlah_harga' => $barangSales->jumlah_harga_item,
+            ];
+        });
+
+        // Menyusun response
+        $pesanMasukAgen = [
+            'id_order' => $orderSales->id_order,
+            'tanggal' => Carbon::parse($orderSales->tanggal)->translatedFormat('d F Y'),
+            'nama_sales' => optional($orderSales->userSales)->nama_lengkap ?? 'Tidak Ditemukan',
+            'no_telp' => optional($orderSales->userSales)->no_telp ?? 'Tidak Ada',
+            'total_item' => $orderSales->jumlah,
+            'total_harga' => $orderSales->total,
+            'item_nota' => $itemNota,
+            'gambar' => $orderSales->bukti_transfer,
+            'status' => $orderSales->status_pemesanan,
+        ];
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Detail pesanan berhasil diambil.',
+            'data' => $pesanMasukAgen
+        ]);
+    }
+    public function updateStatusPesananAPI(Request $request, $id)
+    {
+        // Validasi input
+        $validated = $request->validate([
+            'status' => 'required|integer|in:0,1,2',
+        ]);
+
+        // Cari data pesanan, jika tidak ditemukan, otomatis akan mengembalikan error 404
+        $pesanMasukAgen = OrderSale::findOrFail($id);
+
+        // Update status pesanan
+        $pesanMasukAgen->update(['status_pemesanan' => $validated['status']]);
+
+        // Return JSON response
+        return response()->json([
+            'success' => true,
+            'message' => 'Status pesanan berhasil diperbarui!',
+            'data' => $pesanMasukAgen,
+        ]);
+    }
 }
