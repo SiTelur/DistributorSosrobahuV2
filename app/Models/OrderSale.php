@@ -22,4 +22,9 @@ class OrderSale extends Model
         'bukti_transfer',
         'status_pemesanan',
     ];
+
+    public function userSales()
+    {
+        return $this->belongsTo(UserSales::class, 'id_user_sales', 'id_user_sales');
+    }
 }

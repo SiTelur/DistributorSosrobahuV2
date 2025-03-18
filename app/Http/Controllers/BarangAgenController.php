@@ -47,7 +47,7 @@ class BarangAgenController extends Controller
                 ->where('order_detail_sales.id_user_agen', $id_user_agen)
                 ->where('order_sales.status_pemesanan', 1)
                 ->sum('order_detail_sales.jumlah_produk');
-          
+
             $isianSlop = $orderValue->stok_slop;
 
             if ($orderValue) {
@@ -61,7 +61,7 @@ class BarangAgenController extends Controller
             }
         }
         // Menghitung total keseluruhan produk
-    $totalProdukKeseluruhan = array_sum($totalProdukList);
+        $totalProdukKeseluruhan = array_sum($totalProdukList);
 
         // Mengambil semua pesanan yang statusnya selesai sesuai id_user_agen
         $completedOrders = OrderAgen::where('status_pemesanan', 1)
@@ -210,5 +210,100 @@ class BarangAgenController extends Controller
     {
         BarangAgen::findOrFail($id)->delete();
         return redirect()->route('barang_agen.index')->with('success', 'Barang Agen berhasil dihapus.');
+    }
+
+    public function stockbarangAPI(Request $request)
+    {
+        // Ambil ID distributor dari token akses
+        $id_user_distributor = $request->user()->currentAccessToken()->user_id;
+
+        // Ambil semua barang yang dimiliki oleh agen
+        $barangAgens = BarangAgen::where('id_user_agen', $id_user_distributor)->get();
+
+        // Siapkan array untuk menyimpan data stok
+        $stokData = [];
+
+        foreach ($barangAgens as $barangAgen) {
+            $idMasterBarang = $barangAgen->id_master_barang;
+
+            // Ambil data produk dari `master_barang`
+            $product = DB::table('master_barang')->where('id_master_barang', $idMasterBarang)->first();
+            if (!$product) {
+                continue; // Lewati jika barang tidak ditemukan
+            }
+
+            // Hitung total produk berdasarkan pesanan agen yang sudah selesai
+            $totalProduk = DB::table('order_detail_agen')
+                ->join('order_agen', 'order_detail_agen.id_order', '=', 'order_agen.id_order')
+                ->where([
+                    ['order_detail_agen.id_master_barang', $idMasterBarang],
+                    ['order_detail_agen.id_user_agen', $id_user_distributor],
+                    ['order_agen.status_pemesanan', 1]
+                ])
+                ->sum('order_detail_agen.jumlah_produk');
+
+            // Hitung total produk yang telah terjual
+            $totalProdukTerjual = DB::table('order_detail_sales')
+                ->join('order_sales', 'order_detail_sales.id_order', '=', 'order_sales.id_order')
+                ->where([
+                    ['order_detail_sales.id_master_barang', $idMasterBarang],
+                    ['order_detail_sales.id_user_agen', $id_user_distributor],
+                    ['order_sales.status_pemesanan', 1]
+                ])
+                ->sum('order_detail_sales.jumlah_produk');
+
+            // Hitung stok akhir dalam satuan slop
+            $stokAkhir = ($totalProduk * $product->stok_slop) - $totalProdukTerjual;
+
+            // Tambahkan data ke array stok
+            $stokData[] = [
+                'nama_rokok' => $product->nama_rokok,
+                'gambar' => $product->gambar,
+                'stok' => $stokAkhir
+            ];
+        }
+
+        // Menghitung total stok keseluruhan
+        $totalStokKeseluruhan = array_sum(array_column($stokData, 'stok'));
+
+        // Produk terlaris berdasarkan pesanan sales yang sudah selesai
+        $topProduct = DB::table('order_detail_sales')
+            ->join('order_sales', 'order_sales.id_order', '=', 'order_detail_sales.id_order')
+            ->where([
+                ['order_sales.id_user_agen', $id_user_distributor],
+                ['order_sales.status_pemesanan', 1]
+            ])
+            ->select('order_detail_sales.id_master_barang', DB::raw('SUM(order_detail_sales.jumlah_produk) as total_jumlah'))
+            ->groupBy('order_detail_sales.id_master_barang')
+            ->orderByDesc('total_jumlah')
+            ->first();
+
+        // Ambil nama produk terlaris
+        $topProductName = $topProduct ? DB::table('master_barang')
+            ->where('id_master_barang', $topProduct->id_master_barang)
+            ->value('nama_rokok') : 'Tidak ada data';
+
+        // Total pendapatan dari order sales yang selesai
+        $totalPendapatan = DB::table('order_sales')
+            ->where([
+                ['id_user_agen', $id_user_distributor],
+                ['status_pemesanan', 1]
+            ])
+            ->sum('total');
+
+        // Total sales (jumlah sales yang dimiliki agen)
+        $totalSales = DB::table('user_sales')
+            ->where('id_user_agen', $id_user_distributor)
+            ->count();
+
+        // Kembalikan response dalam format JSON
+        return response()->json([
+            'success' => true,
+            'stok_barang' => $stokData,
+            'total_stok_keseluruhan' => $totalStokKeseluruhan,
+            'top_product' => $topProductName,
+            'total_pendapatan' => $totalPendapatan,
+            'total_sales' => $totalSales
+        ]);
     }
 }

@@ -81,7 +81,6 @@ class OrderAgenController extends Controller
 
         // Mengirim data pesanan ke view
         return view('agen.riwayatAgen', compact('orderAgens'));
-
     }
 
     //  memanipulasi jumlah barang Dihalaman Order Detail
@@ -254,5 +253,108 @@ class OrderAgenController extends Controller
 
 
         return view('agen.nota', compact('notaAgen'));
+    }
+
+    public function storeOrder(Request $request)
+    {
+        try {
+            // Validate input
+            $validated = $request->validate([
+                'total_items' => 'required|integer|min:1',
+                'total_amount' => 'required|numeric|min:1',
+                'quantities' => 'required|array',
+                'quantities.*.id_master_barang' => 'required|integer|exists:tbl_barang_disitributor,id_master_barang',
+                'quantities.*.quantity' => 'required|integer|min:1',
+                'payment_proof' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+            ]);
+
+            // Handle file upload if exists
+            $path = $request->hasFile('payment_proof')
+                ? $request->file('payment_proof')->store('bukti_transfer', 'public')
+                : null;
+
+            // Retrieve user data
+            $id_user_agen = $request->user()->currentAccessToken()->user_id;
+            $id_user_distributor = DB::table('user_agen')
+                ->where('id_user_agen', $id_user_agen)
+                ->value('id_user_distributor');
+
+            if (!$id_user_distributor) {
+                return response()->json(['error' => 'Distributor not found'], 404);
+            }
+
+            // Create Order
+            $order = OrderAgen::create([
+                'id_user_agen' => $id_user_agen,
+                'id_user_distributor' => $id_user_distributor,
+                'jumlah' => $validated['total_items'],
+                'total' => $validated['total_amount'],
+                'tanggal' => now(),
+                'bukti_transfer' => $path,
+                'status_pemesanan' => 0, // 0 = Pending
+            ]);
+
+            $orderDetails = [];
+            foreach ($validated['quantities'] as $item) {
+                $product = DB::table('tbl_barang_disitributor')
+                    ->where('id_master_barang', $item['id_master_barang'])
+                    ->first();
+
+                if (!$product) {
+                    return response()->json(['error' => 'Product not found'], 404);
+                }
+
+                $orderDetails[] = [
+                    'id_order' => $order->id_order,
+                    'id_user_distributor' => $id_user_distributor,
+                    'id_user_agen' => $id_user_agen,
+                    'id_master_barang' => $item['id_master_barang'],
+                    'id_barang_distributor' => $product->id_barang_distributor,
+                    'jumlah_produk' => $item['quantity'],
+                    'jumlah_harga_item' => $product->harga_distributor * $item['quantity'],
+                    'harga_tetap_nota' => $product->harga_distributor,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+            }
+
+            // Bulk insert order details
+            OrderDetailAgen::insert($orderDetails);
+
+            return response()->json([
+                'message' => 'Pesanan berhasil dikirim!',
+                'order_id' => $order->id_order,
+                'order_details' => $orderDetails
+            ], 201);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function riwayatOrderAPI(Request $request)
+    {
+        try {
+            $id_user_agen = $request->user()->currentAccessToken()->user_id;
+
+            // Get orders with formatted date
+            $orderAgens = OrderAgen::where('id_user_agen', $id_user_agen)
+                ->orderByDesc('id_order')
+                ->paginate(10)
+                ->through(fn($order) => [
+                    'id_order' => $order->id_order,
+                    'jumlah' => $order->jumlah,
+                    'total' => $order->total,
+                    'tanggal' => Carbon::parse($order->tanggal)->translatedFormat('d F Y'),
+                    'bukti_transfer' => $order->bukti_transfer,
+                    'status_pemesanan' => $order->status_pemesanan
+                ]);
+
+            return response()->json([
+                'message' => 'Riwayat pesanan berhasil diambil',
+                'orders' => $orderAgens
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
     }
 }
