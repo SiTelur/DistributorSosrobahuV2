@@ -4,10 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Laravel\Sanctum\HasApiTokens;
 
 class UserSales extends Authenticatable
 {
-    use HasFactory;
+    use HasApiTokens, HasFactory;
 
     // Menentukan nama tabel yang digunakan model ini
     protected $table = 'user_sales';

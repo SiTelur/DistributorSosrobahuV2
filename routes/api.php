@@ -15,6 +15,11 @@ use App\Http\Controllers\Distributor\PesananMasukDistributorController;
 use App\Http\Controllers\Pabrik\AkunDistributorController;
 use App\Http\Controllers\Pabrik\PesananMasukPabrikController;
 use App\Http\Controllers\Pabrik\RestockPabrikController;
+use App\Http\Controllers\Sales\DaftarTokoController;
+use App\Http\Controllers\Sales\KunjunganTokoController;
+use App\Http\Controllers\Sales\LoginSalesController;
+use App\Http\Controllers\Sales\OrderSaleController;
+use App\Models\OrderSale;
 
 /*
 |--------------------------------------------------------------------------
@@ -69,4 +74,23 @@ Route::middleware(['auth:sanctum', 'role:agen'])->group(function () {
 
     Route::post('/agen/order', [OrderAgenController::class, 'storeOrder']);
     Route::get('/agen/riwayatOrder', [OrderAgenController::class, 'riwayatOrderAPI']);
+});
+
+Route::post('/sales/login', [LoginSalesController::class, 'loginSalesAPI']);
+Route::middleware(['auth:sanctum', 'role:sales'])->group(function () {
+    Route::get('/sales/dashboard', [OrderSaleController::class, 'dashboardSalesAPI']);
+    Route::get('/sales/listBarangOrder', [OrderSaleController::class, 'getListBarangOrderAPI']);
+
+    Route::post('/sales/order', [OrderSaleController::class, 'storeOrderAPI']);
+
+    Route::get('/sales/riwayatOrder', [OrderSaleController::class, 'riwayatOrderAPI']);
+
+    Route::get('/sales/listToko', [DaftarTokoController::class, 'daftarTokoAPI']);
+    Route::post('/sales/toko', [DaftarTokoController::class, 'storeTokoAPI']);
+    Route::put('/sales/toko/{id_daftar_toko}', [DaftarTokoController::class, 'updateTokoAPI']);
+    Route::delete('/sales/toko/{id_daftar_toko}', [DaftarTokoController::class, 'deleteTokoAPI']);
+
+    Route::get('/sales/kunjungan/{id_toko}', [KunjunganTokoController::class, 'getKunjunganTokoAPI']);
+    Route::post('/sales/kunjungan/{id_toko}', [KunjunganTokoController::class, 'insertKunjunganTokoAPI']);
+    Route::patch('/sales/kunjungan/update/{id_kunjungan_toko}', [KunjunganTokoController::class, 'updateKunjunganTokoAPI']);
 });
