@@ -92,5 +92,5 @@ Route::middleware(['auth:sanctum', 'role:sales'])->group(function () {
 
     Route::get('/sales/kunjungan/{id_toko}', [KunjunganTokoController::class, 'getKunjunganTokoAPI']);
     Route::post('/sales/kunjungan/{id_toko}', [KunjunganTokoController::class, 'insertKunjunganTokoAPI']);
-    Route::patch('/sales/kunjungan/update/{id_kunjungan_toko}', [KunjunganTokoController::class, 'updateKunjunganTokoAPI']);
+    Route::post('/sales/kunjungan/update/{id_kunjungan_toko}', [KunjunganTokoController::class, 'updateKunjunganTokoAPI']);
 });
