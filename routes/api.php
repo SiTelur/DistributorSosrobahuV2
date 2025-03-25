@@ -49,6 +49,8 @@ Route::middleware(['auth:sanctum', 'role:pabrik'])->group(function () {
 
     Route::get('/pabrik/restock', [BarangPabrikController::class, 'restockBarangAPI']);
     Route::post('/pabrik/restock', [RestockPabrikController::class, 'storeAPI']);
+
+    Route::get('/pabrik/riwayatPabrik', [RestockPabrikController::class, 'riwayatRestockAPI']);
 });
 
 

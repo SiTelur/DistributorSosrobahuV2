@@ -209,4 +209,25 @@ class RestockPabrikController extends Controller
             'order' => $id_restock // Assuming $order contains the order details
         ]);
     }
+
+    public function riwayatRestockAPI(Request $request)
+    {
+        $search = $request->input('search');
+
+        $restockPabriks = RestockPabrik::query()
+            ->when($search, function ($query) use ($search) {
+                $query->where(DB::raw("CONCAT('RST1234', id_restock)"), 'like', "%{$search}%")
+                    ->orWhere(DB::raw("DATE_FORMAT(tanggal, '%d/%m/%Y')"), 'like', "%{$search}%")
+                    ->orWhere(DB::raw("CONCAT(jumlah, ' Karton')"), 'like', "%{$search}%");
+            })
+            ->orderByDesc('id_restock')
+            ->paginate(10)
+            ->through(fn($restockPabrik) => [
+                'id_restock' => 'RST1234' . $restockPabrik->id_restock,
+                'tanggal' => Carbon::parse($restockPabrik->tanggal)->format('d/m/Y'),
+                'jumlah' => $restockPabrik->jumlah . ' Karton',
+            ]);
+
+        return response()->json($restockPabriks);
+    }
 }
