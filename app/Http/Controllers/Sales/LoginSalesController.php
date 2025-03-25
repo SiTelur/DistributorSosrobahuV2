@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Sales;
 
 use App\Http\Controllers\Controller;
 use App\Models\UserSales;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -131,7 +132,7 @@ class LoginSalesController extends Controller
         $token = $user->createToken('sosrobahu_token', ['role:sales']);
         $accessToken = $token->accessToken;
 
-        $accessToken->forceFill(['user_id' => $user->id_user_sales])->save();
+        $accessToken->forceFill(['user_id' => $user->id_user_sales, 'expires_at' => Carbon::now()->addDays(1)])->save();
 
         return response()->json([
             'message' => 'Login berhasil.',

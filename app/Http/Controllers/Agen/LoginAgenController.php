@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Agen;
 
 use App\Http\Controllers\Controller;
 use App\Models\UserAgen;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -119,7 +120,7 @@ class LoginAgenController extends Controller
         $token = $user->createToken('sosrobahu_token', ['role:agen']);
         $accessToken = $token->accessToken;
 
-        $accessToken->forceFill(['user_id' => $user->id_user_agen])->save();
+        $accessToken->forceFill(['user_id' => $user->id_user_agen, 'expires_at' => Carbon::now()->addDays(1)])->save();
 
         return response()->json([
             'message' => 'Login berhasil.',
