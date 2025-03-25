@@ -36,7 +36,7 @@ class LoginSalesController extends Controller
                 session(['nama_lengkap' => $user->nama_lengkap]);
                 session(['id_user_sales' => $user->id_user_sales]);
                 session(['id_user_agen' => $user->id_user_agen]);
-                session(['role'=>  'sales']);
+                session(['role' =>  'sales']);
 
 
                 // Redirect ke dashboard atau halaman lain
@@ -88,9 +88,9 @@ class LoginSalesController extends Controller
             ->withSum('orderSales', 'total')
             ->orderBy('order_sales_sum_total', 'desc')
             ->get();
-    
+
         $totalPricePerSales = $akunSales->pluck('order_sales_sum_total', 'id_user_sales')->toArray();
-    
+
         if (!array_key_exists($id_user_sales, $totalPricePerSales)) {
             return response()->json([
                 'message' => 'Sales tidak ditemukan dalam daftar ranking untuk distributor ini.',
@@ -104,7 +104,7 @@ class LoginSalesController extends Controller
             'id_user_agen' => $agenId,
         ]);
     }
-    
+
     public function logoutSales()
     {
         Auth::guard('sales')->logout(); // Logout menggunakan guard 'sales'
@@ -113,5 +113,34 @@ class LoginSalesController extends Controller
         session()->flush();
         // Redirect ke halaman login
         return redirect()->route('halamanLoginSales')->with('success', 'Anda telah berhasil logout.');
+    }
+
+    public function loginSalesAPI(Request $request)
+    {
+        $request->validate([
+            'username' => 'required|string',
+            'password' => 'required|string',
+        ]);
+
+        $user = UserSales::where('username', $request->username)->first();
+
+        if ($user === null || !Hash::check($request->password, $user->password)) {
+            return response()->json(['message' => 'Username atau password salah.'], 401);
+        }
+
+        $token = $user->createToken('sosrobahu_token', ['role:sales']);
+        $accessToken = $token->accessToken;
+
+        $accessToken->forceFill(['user_id' => $user->id_user_sales])->save();
+
+        return response()->json([
+            'message' => 'Login berhasil.',
+            'token' => $token,
+            'user' => [
+                'id' => $user->id_user_sales,
+                'nama_lengkap' => $user->nama_lengkap,
+                'role' => 'sales'
+            ]
+        ]);
     }
 }

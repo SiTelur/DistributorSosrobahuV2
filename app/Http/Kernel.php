@@ -4,6 +4,7 @@ namespace App\Http;
 
 use Illuminate\Foundation\Http\Kernel as HttpKernel;
 use Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful;
+use  \App\Http\Middleware\ConvertToPost;
 
 class Kernel extends HttpKernel
 {
@@ -43,6 +44,7 @@ class Kernel extends HttpKernel
             \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
             \Illuminate\Routing\Middleware\ThrottleRequests::class . ':api',
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
+
         ],
     ];
 
@@ -73,6 +75,6 @@ class Kernel extends HttpKernel
         'auth.distributor' => \App\Http\Middleware\AuthenticateDistributor::class,
         'auth.pabrik' => \App\Http\Middleware\AuthenticatePabrik::class,
         'role' => \App\Http\Middleware\AuthenticateRole::class,
-        
+
     ];
 }

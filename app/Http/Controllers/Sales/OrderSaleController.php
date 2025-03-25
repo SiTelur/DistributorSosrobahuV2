@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use App\Models\OrderDetailSales;
 use App\Models\KunjunganToko;
 use App\Models\UserAgen;
+use App\Models\UserSales;
 use Carbon\Carbon;
 
 class OrderSaleController extends Controller
@@ -202,9 +203,9 @@ class OrderSaleController extends Controller
         foreach ($orderDetailSalesItem as $barangAgen) {
             $product = DB::table('master_barang')->where('id_master_barang', $barangAgen->id_master_barang)->first();
             $hargaSatuan = DB::table('tbl_barang_agen')
-            ->where('id_user_agen', $barangAgen->id_user_agen)
-            ->where('id_barang_agen', $barangAgen->id_barang_agen)
-            ->first();
+                ->where('id_user_agen', $barangAgen->id_user_agen)
+                ->where('id_barang_agen', $barangAgen->id_barang_agen)
+                ->first();
 
             $itemNota[] = [
                 'nama_rokok' => $product ? $product->nama_rokok : null,
@@ -398,5 +399,171 @@ class OrderSaleController extends Controller
 
 
         return view('sales.nota', compact('notaSales'));
+    }
+
+
+    public function dashboardSalesAPI(Request $request)
+    {
+        $id_user_sales = $request->user()->currentAccessToken()->user_id;
+        $totalPrice = OrderSale::where('status_pemesanan', 1)
+            ->where('id_user_sales', $id_user_sales)
+            ->sum('total');
+
+        // Menghitung jumlah toko berdasarkan id_user_sales
+        $jumlahToko = DaftarToko::where('id_user_sales', $id_user_sales)->count();
+
+        // Mengambil produk terlaris untuk id_user_sales
+        $topProduct = OrderDetailSales::select('id_master_barang', DB::raw('SUM(jumlah_produk) as total_quantity'))
+            ->whereHas('orderSale', function ($query) use ($id_user_sales) {
+                $query->where('status_pemesanan', 1)
+                    ->where('id_user_sales', $id_user_sales);
+            })
+            ->groupBy('id_master_barang')
+            ->orderByDesc('total_quantity')
+            ->first();
+
+        // Mengambil nama produk terlaris
+        $topProductName = $topProduct
+            ? DB::table('master_barang')
+            ->where('id_master_barang', $topProduct->id_master_barang)
+            ->value('nama_rokok')
+            : 'Tidak ada data';
+
+        // Menghitung total stok (dalam pcs)
+        $totalStok = OrderDetailSales::whereHas('orderSale', function ($query) use ($id_user_sales) {
+            $query->where('status_pemesanan', 1)
+                ->where('id_user_sales', $id_user_sales);
+        })->sum(DB::raw('jumlah_produk * 10')); // Mengonversi slop ke pcs
+
+        // Menghitung total penjualan (sisa produk)
+        $totalPenjualan = KunjunganToko::where('id_user_sales', $id_user_sales)->sum('sisa_produk');
+
+        // Mengurangi stok berdasarkan produk yang terjual
+        $totalStok -= $totalPenjualan;
+
+        // Mengembalikan response dalam format JSON
+        return response()->json([
+            'total_price' => $totalPrice,
+            'jumlah_toko' => $jumlahToko,
+            'top_product' => $topProductName,
+            'total_stok' => $totalStok,
+        ]);
+    }
+
+    public function getListBarangOrderAPI(Request $request)
+    {
+        // Get user ID from current access token
+        $id_user_sales = $request->user()->currentAccessToken()->user_id;
+
+        $id_user_agen = UserSales::where('id_user_sales', $id_user_sales)->value('id_user_agen');
+        // Retrieve BarangAgen with related master_barang data in a single query
+        $barangAgens = BarangAgen::where('id_user_agen', $id_user_agen)
+            ->with('masterBarang:id_master_barang,nama_rokok,gambar') // Eager load only needed fields
+            ->get();
+
+        // Transform data into a structured response
+        $data = $barangAgens->map(function ($item) {
+            return [
+                'id_barang_agen' => $item->id_user_agen,
+                'id_master_barang' => $item->id_master_barang,
+                'nama_rokok' => optional($item->masterBarang)->nama_rokok, // Use optional() to prevent errors if null
+                'gambar' => optional($item->masterBarang)->gambar,
+            ];
+        });
+
+        // Return JSON response
+        return response()->json([
+            'success' => true,
+            'data' => $data,
+        ]);
+    }
+
+    public function storeOrderAPI(Request $request)
+    {
+        $validatedData = $request->validate([
+            'payment_proof' => 'nullable|file|mimes:jpeg,png,pdf|max:2048',
+            'quantities' => 'required|array',
+            'quantities.*' => 'required|integer|min:1',
+            'total_items' => 'required|integer|min:1',
+            'total_amount' => 'required|numeric|min:0',
+        ]);
+
+        $path = $request->hasFile('payment_proof')
+            ? $request->file('payment_proof')->store('bukti_transfer', 'public')
+            : null;
+
+        $id_user_sales = $request->user()->currentAccessToken()->user_id;
+        $id_user_agen = DB::table('users')->where('id_user_sales', $id_user_sales)->value('id_user_agen');
+
+
+        return DB::transaction(function () use ($validatedData, $id_user_sales, $id_user_agen, $path) {
+            $order = OrderSale::create([
+                'id_user_sales' => $id_user_sales,
+                'id_user_agen' => $id_user_agen,
+                'jumlah' => $validatedData['total_items'],
+                'total' => $validatedData['total_amount'],
+                'tanggal' => now(),
+                'bukti_transfer' => $path,
+                'status_pemesanan' => 0,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            $orderDetails = [];
+            foreach ($validatedData['quantities'] as $productId => $quantity) {
+                $product = DB::table('tbl_barang_agen')
+                    ->where('id_master_barang', $productId)
+                    ->where('id_user_agen', $id_user_agen)
+                    ->first();
+
+                if (!$product) {
+                    return response()->json(['error' => 'Produk tidak ditemukan'], 404);
+                }
+
+                $orderDetails[] = [
+                    'id_order' => $order->id_order,
+                    'id_user_agen' => $id_user_agen,
+                    'id_user_sales' => $id_user_sales,
+                    'id_master_barang' => $productId,
+                    'id_barang_agen' => $product->id_barang_agen,
+                    'jumlah_produk' => $quantity,
+                    'jumlah_harga_item' => $product->harga_agen * $quantity,
+                    'harga_tetap_nota' => $product->harga_agen,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+            }
+
+            OrderDetailSales::insert($orderDetails);
+
+            return response()->json([
+                'message' => 'Pesanan berhasil dikirim!',
+                'order_id' => $order->id_order,
+                'total' => $order->total,
+            ], 201);
+        });
+    }
+
+    public function riwayatOrderAPI(Request $request)
+    {
+        // Ambil id_user_sales dari token
+        $id_user_sales = $request->user()->currentAccessToken()->user_id;
+
+        // Mengambil pesanan yang sesuai dengan id_user_sales dan mengurutkan berdasarkan ID terbesar
+        $orderSales = OrderSale::where('id_user_sales', $id_user_sales)
+            ->orderBy('id_order', 'desc')
+            ->paginate(10);
+
+        // Format tanggal menggunakan Carbon
+        $orderSales->getCollection()->transform(function ($order) {
+            $order->tanggal = Carbon::parse($order->tanggal)->toDateTimeString();
+            return $order;
+        });
+
+        // Mengembalikan response dalam format JSON
+        return response()->json([
+            'message' => 'Riwayat pesanan berhasil diambil',
+            'orders' => $orderSales,
+        ], 200);
     }
 }

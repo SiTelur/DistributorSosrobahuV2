@@ -12,6 +12,12 @@ class Authenticate extends Middleware
      */
     protected function redirectTo(Request $request): ?string
     {
-        return $request->expectsJson() ? null : route('login');
+        if ($request->expectsJson() || $request->is('api/*')) {
+            abort(response()->json([
+                'message' => 'Unauthorized: Token is invalid or expired'
+            ], 401));
+        }
+
+        return route('login'); // Redirect ke halaman login untuk web
     }
 }
