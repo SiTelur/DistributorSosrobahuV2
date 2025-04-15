@@ -214,6 +214,7 @@ class RestockPabrikController extends Controller
     {
         $search = $request->input('search');
 
+        // Ambil data restock dengan pencarian
         $restockPabriks = RestockPabrik::query()
             ->when($search, function ($query) use ($search) {
                 $query->where(DB::raw("CONCAT('RST1234', id_restock)"), 'like', "%{$search}%")
@@ -221,12 +222,34 @@ class RestockPabrikController extends Controller
                     ->orWhere(DB::raw("CONCAT(jumlah, ' Karton')"), 'like', "%{$search}%");
             })
             ->orderByDesc('id_restock')
-            ->paginate(10)
-            ->through(fn($restockPabrik) => [
-                'id_restock' => 'RST1234' . $restockPabrik->id_restock,
-                'tanggal' => Carbon::parse($restockPabrik->tanggal)->format('d/m/Y'),
-                'jumlah' => $restockPabrik->jumlah . ' Karton',
-            ]);
+            ->paginate(10);
+
+        // Ubah data ke bentuk gabungan
+        $restockPabriks->getCollection()->transform(function ($restock) {
+            // Ambil semua id_master_barang yang terkait dengan restock ini
+            $detailBarang = DB::table('detail_restock') // sesuaikan nama tabel pivot
+                ->where('id_restock', $restock->id_restock)
+                ->pluck('id_master_barang');
+
+            // Ambil data master barang berdasarkan ID tersebut
+            $detailProduk = MasterBarang::whereIn('id_master_barang', $detailBarang)->get()->map(function ($item) {
+                return [
+                    'id_master_barang' => $item->id_master_barang,
+                    'nama_rokok' => $item->nama_rokok,
+                    'jenis' => $item->jenis,
+                    'stok' => $item->stok,
+                    'harga' => $item->harga,
+                    // tambahkan field lain jika perlu
+                ];
+            });
+
+            return [
+                'id_restock' => 'RST1234' . $restock->id_restock,
+                'tanggal' => Carbon::parse($restock->tanggal)->format('d/m/Y'),
+                'jumlah' => $restock->jumlah . ' Karton',
+                'detail_produk' => $detailProduk
+            ];
+        });
 
         return response()->json($restockPabriks);
     }
