@@ -206,7 +206,7 @@ class RestockPabrikController extends Controller
         return response()->json([
             'message' => 'Pesanan berhasil dikirim!',
             'status' => 'success',
-            'order' => $id_restock // Assuming $order contains the order details
+            'success' => true
         ]);
     }
 
