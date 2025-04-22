@@ -253,69 +253,73 @@ class OrderDistributorController extends Controller
     public function storeOrderAPI(Request $request)
     {
         try {
-            // Validate request
+            // 1. Validate request dan simpan hasilnya ke $validated
             $validated = $request->validate([
-                'total_items' => 'required|integer|min:1',
-                'total_amount' => 'required|numeric|min:1',
-                'quantities' => 'required|array', // Ensure quantities is an array
-                'quantities.*.id_master_barang' => 'required|integer|exists:master_barang,id_master_barang',
-                'quantities.*.quantity' => 'required|integer|min:1',
-                'payment_proof' => 'nullable|image|mimes:jpeg,png,jpg|max:2048'
+                'total_items'                     => 'required|integer|min:1',
+                'total_amount'                    => 'required|numeric|min:1',
+                'quantities'                      => 'required|array',
+                'quantities.*.id_master_barang'   => 'required|integer|exists:master_barang,id_master_barang',
+                'quantities.*.quantity'           => 'required|integer|min:1',
+                'payment_proof'                   => 'nullable|image|mimes:jpeg,png,jpg|max:2048'
             ]);
 
-            // Handle file upload
+            // 2. Handle file upload
             $path = $request->hasFile('payment_proof')
                 ? $request->file('payment_proof')->store('bukti_transfer', 'public')
                 : null;
 
-            // Get distributor ID from token
+            // 3. Ambil distributor ID dari token
             $id_user_distributor = $request->user()->currentAccessToken()->user_id;
 
-            // Start transaction to ensure data consistency
             DB::beginTransaction();
 
-            // Create order and get its ID
+            // 4. Buat Order pakai data tervalidasi
             $order = OrderDistributor::create([
                 'id_user_distributor' => $id_user_distributor,
-                'jumlah' => $request->total_items,
-                'total' => $request->total_amount,
-                'tanggal' => now(),
-                'bukti_transfer' => $path,
-                'status_pemesanan' => 0, // 0 = Pending
+                'jumlah'              => $validated['total_items'],
+                'total'               => $validated['total_amount'],
+                'tanggal'             => now(),
+                'bukti_transfer'      => $path,
+                'status_pemesanan'    => 0,
             ]);
 
-            // Prepare order details for bulk insert
+            // 5. Loop pada $validated['quantities']
             $orderDetails = [];
-            foreach ($request->input('quantities') as $productId => $quantity) {
-                $product = DB::table('master_barang')->where('id_master_barang', $productId)->first();
+            foreach ($validated['quantities'] as $item) {
+                $productId = $item['id_master_barang'];
+                $quantity  = $item['quantity'];
+
+                $product = DB::table('master_barang')
+                    ->where('id_master_barang', $productId)
+                    ->first();
+
+                // (Validator sudah cek exists, tapi safety check boleh dipertahankan)
                 if (!$product) {
                     throw new \Exception("Produk dengan ID $productId tidak ditemukan.");
                 }
 
                 $orderDetails[] = [
-                    'id_order' => $order->id_order,
-                    'id_user_pabrik' => 1,
+                    'id_order'            => $order->id_order,
+                    'id_user_pabrik'      => 1,
                     'id_user_distributor' => $id_user_distributor,
-                    'id_master_barang' => $productId,
-                    'jumlah_produk' => $quantity,
-                    'jumlah_harga_item' => $product->harga_karton_pabrik * $quantity,
-                    'created_at' => now(),
-                    'updated_at' => now(),
+                    'id_master_barang'    => $productId,
+                    'jumlah_produk'       => $quantity,
+                    'jumlah_harga_item'   => $product->harga_karton_pabrik * $quantity,
+                    'created_at'          => now(),
+                    'updated_at'          => now(),
                 ];
             }
 
-            // Bulk insert order details
+            // 6. Bulk insert detail
             OrderDetailDistributor::insert($orderDetails);
 
-            // Commit transaction
             DB::commit();
 
-            // Return JSON response
             return response()->json([
-                'success' => true,
-                'message' => 'Pesanan berhasil dikirim!',
-                'order' => $order,
-                'order_details' => $orderDetails,
+                'success'        => true,
+                'message'        => 'Pesanan berhasil dikirim!',
+                'order'          => $order,
+                'order_details'  => $orderDetails,
             ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -323,7 +327,7 @@ class OrderDistributorController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Terjadi kesalahan saat memproses pesanan.',
-                'error' => $e->getMessage(),
+                'error'   => $e->getMessage(),
             ], 500);
         }
     }
@@ -346,10 +350,8 @@ class OrderDistributorController extends Controller
             ]);
 
         // Mengembalikan data sebagai JSON response
-        return response()->json([
-            'success' => true,
-            'message' => 'Riwayat pesanan berhasil diambil.',
-            'data' => $orderDistributors
-        ]);
+        return response()->json(
+            $orderDistributors
+        );
     }
 }
