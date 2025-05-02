@@ -274,9 +274,9 @@ class BarangDistributorController extends Controller
             ->value('nama_rokok') : 'Tidak ada data';
 
         // Total pendapatan dari pesanan agen
-        $totalPendapatan = OrderAgen::where('id_user_distributor', $id_user_distributor)
+        $totalPendapatan = intval(OrderAgen::where('id_user_distributor', $id_user_distributor)
             ->where('status_pemesanan', 1)
-            ->sum('total');
+            ->sum('total'));
 
         // Mengambil jumlah sales dari user_agen
         $totalAgen = UserAgen::where('id_user_distributor', $id_user_distributor)->count();
