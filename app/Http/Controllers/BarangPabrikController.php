@@ -277,9 +277,9 @@ class BarangPabrikController extends Controller
             ->value('nama_rokok') : 'Tidak ada data';
 
         // Total pendapatan dari pesanan distributor yang selesai
-        $totalPendapatan = DB::table('order_distributor')
+        $totalPendapatan = intval(DB::table('order_distributor')
             ->where('status_pemesanan', 1)
-            ->sum('total');
+            ->sum('total'));
 
         // Mengambil jumlah distributor dari tabel user_distributor
         $totalDistributor = DB::table('user_distributor')->count();
