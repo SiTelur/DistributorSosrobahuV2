@@ -63,6 +63,7 @@ Route::middleware(['auth:sanctum', 'role:distributor'])->group(function () {
 
 
     Route::post("/distributor/order", [OrderDistributorController::class, 'storeOrderAPI']);
+    Route::get("/distributor/pilihBarang", [BarangPabrikController::class, 'listBarangPabrikDistributorAPI']);
     Route::get("/distributor/riwayatOrder", [OrderDistributorController::class, 'listRiwayatOrderAPI']);
 });
 

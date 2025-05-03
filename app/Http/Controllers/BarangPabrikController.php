@@ -333,4 +333,12 @@ class BarangPabrikController extends Controller
         // Return the response as JSON
         return response()->json($responseData);
     }
+
+    public function listBarangPabrikDistributorAPI()
+    {
+        $barangPabriks = MasterBarang::all(['id_master_barang', 'nama_rokok', 'gambar']);
+
+        // Jika Anda memang butuh tiga array terpisah:
+        return response()->json($barangPabriks, 200);
+    }
 }
