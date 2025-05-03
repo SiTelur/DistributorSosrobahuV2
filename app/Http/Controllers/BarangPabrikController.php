@@ -337,7 +337,7 @@ class BarangPabrikController extends Controller
 
     public function listBarangPabrikDistributorAPI()
     {
-        $barangPabriks = MasterBarang::all(['id_master_barang', 'nama_rokok', 'gambar']);
+        $barangPabriks = MasterBarang::all();
 
         $pabrik = UserPabrik::select('nama_lengkap', 'nama_bank', 'no_rek')->first();
 
