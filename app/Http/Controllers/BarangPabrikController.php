@@ -342,6 +342,6 @@ class BarangPabrikController extends Controller
             'barangPabriks' => $barangPabriks,
         ];
         // Jika Anda memang butuh tiga array terpisah:
-        return response()->json([$responseData], 200);
+        return response()->json($responseData, 200);
     }
 }
