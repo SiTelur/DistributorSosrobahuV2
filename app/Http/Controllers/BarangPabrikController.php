@@ -313,7 +313,26 @@ class BarangPabrikController extends Controller
         ]);
     }
 
+    public function restockBarangAPI()
+    {
+        // Retrieve all records from the MasterBarang model
+        $barangPabriks = MasterBarang::all();
 
+        // Check if the collection is empty
+        if ($barangPabriks->isEmpty()) {
+            return response()->json(['message' => 'No records found in master_barang'], 404);
+        }
+
+
+
+        // Prepare the response data
+        $responseData = [
+            'barangPabriks' => $barangPabriks,
+        ];
+
+        // Return the response as JSON
+        return response()->json($responseData);
+    }
 
     public function listBarangPabrikDistributorAPI()
     {
@@ -323,6 +342,6 @@ class BarangPabrikController extends Controller
             'barangPabriks' => $barangPabriks,
         ];
         // Jika Anda memang butuh tiga array terpisah:
-        return response()->json($responseData, 200);
+        return response()->json([$responseData], 200);
     }
 }
