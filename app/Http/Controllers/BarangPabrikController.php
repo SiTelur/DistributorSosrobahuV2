@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use App\Models\MasterBarang;
 use Illuminate\Support\Facades\DB;
 use App\Models\RestockDetailPabrik;
+use App\Models\UserPabrik;
 use App\Models\OrderDistributor;
 use Carbon\Carbon;
 
@@ -338,10 +339,15 @@ class BarangPabrikController extends Controller
     {
         $barangPabriks = MasterBarang::all(['id_master_barang', 'nama_rokok', 'gambar']);
 
-        $responseData = [
+        $pabrik = UserPabrik::select('nama_bank', 'no_rek')->first();
+
+        // 3. Gabungkan ke dalam response JSON
+        return response()->json([
             'barangPabriks' => $barangPabriks,
-        ];
-        // Jika Anda memang butuh tiga array terpisah:
-        return response()->json($responseData, 200);
+            'pabrik'        => [
+                'nama_bank' => $pabrik->nama_bank,
+                'no_rek'    => $pabrik->no_rek,
+            ],
+        ], 200);
     }
 }
