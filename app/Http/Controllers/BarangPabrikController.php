@@ -339,12 +339,13 @@ class BarangPabrikController extends Controller
     {
         $barangPabriks = MasterBarang::all(['id_master_barang', 'nama_rokok', 'gambar']);
 
-        $pabrik = UserPabrik::select('nama_bank', 'no_rek')->first();
+        $pabrik = UserPabrik::select('nama_lengkap', 'nama_bank', 'no_rek')->first();
 
         // 3. Gabungkan ke dalam response JSON
         return response()->json([
             'barangPabriks' => $barangPabriks,
             'pabrik'        => [
+                'nama_lengkap' => $pabrik->nama_lengkap,
                 'nama_bank' => $pabrik->nama_bank,
                 'no_rek'    => $pabrik->no_rek,
             ],
