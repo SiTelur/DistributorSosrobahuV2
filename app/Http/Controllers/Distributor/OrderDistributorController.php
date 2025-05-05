@@ -334,24 +334,58 @@ class OrderDistributorController extends Controller
 
     public function listRiwayatOrderAPI(Request $request)
     {
-        $id_user_distributor = $request->user()->currentAccessToken()->user_id;
+        $id_user_distributor = $request->user()
+            ->currentAccessToken()
+            ->user_id;
 
-        // Ambil data pesanan dengan format tanggal yang sudah dikonversi
-        $orderDistributors = OrderDistributor::where('id_user_distributor', $id_user_distributor)
+        // Ambil orders & paginate
+        $orders = OrderDistributor::where('id_user_distributor', $id_user_distributor)
             ->orderByDesc('id_order')
-            ->paginate(10)
-            ->through(fn($order) => [
-                'id_order' => $order->id_order,
-                'jumlah' => $order->jumlah,
-                'total' => $order->total,
-                'tanggal' => Carbon::parse($order->tanggal)->translatedFormat('d F Y'),
-                'status_pemesanan' => $order->status_pemesanan,
-                'bukti_transfer' => $order->bukti_transfer,
-            ]);
+            ->paginate(10);
 
-        // Mengembalikan data sebagai JSON response
-        return response()->json(
-            $orderDistributors
-        );
+        // Transform setiap item di collection
+        $orders->getCollection()->transform(function ($order) {
+            // 1) Ambil detail per order
+            $detail = DB::table('order_detail_distributor')
+                ->where('id_order', $order->id_order)
+                ->get();
+
+            // 2) Ambil data master_barang sesuai id
+            $masterData = MasterBarang::whereIn(
+                'id_master_barang',
+                $detail->pluck('id_master_barang')->toArray()
+            )
+                ->get()
+                ->keyBy('id_master_barang');
+
+            // 3) Gabungkan detail + info produk
+            $detailProduk = $detail->map(function ($d) use ($masterData) {
+                $brg = $masterData[$d->id_master_barang] ?? null;
+                if (! $brg) return null;
+
+                return [
+                    'id_master_barang'       => $brg->id_master_barang,
+                    'nama_rokok'             => $brg->nama_rokok,
+                    'harga_karton_pabrik'    => $brg->harga_karton_pabrik,
+                    'quantity'               => $d->quantity,  // sesuaikan nama kolom di tabel detail
+                ];
+            })
+                ->filter()   // buang null
+                ->values(); // reindex
+
+            // 4) Bentuk response untuk tiap order
+            return [
+                'id_order'          => $order->id_order,
+                'jumlah'            => $order->jumlah,
+                'total'             => $order->total,
+                'tanggal'           => Carbon::parse($order->tanggal)
+                    ->translatedFormat('d F Y'),
+                'status_pemesanan'  => $order->status_pemesanan,
+                'bukti_transfer'    => $order->bukti_transfer,
+                'detail_produk'     => $detailProduk,
+            ];
+        });
+
+        return response()->json($orders);
     }
 }
