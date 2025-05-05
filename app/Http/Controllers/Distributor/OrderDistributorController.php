@@ -367,7 +367,7 @@ class OrderDistributorController extends Controller
                     'id_master_barang'       => $brg->id_master_barang,
                     'nama_rokok'             => $brg->nama_rokok,
                     'harga_karton_pabrik'    => $brg->harga_karton_pabrik,
-                    'quantity'               => $d->quantity,  // sesuaikan nama kolom di tabel detail
+                    'quantity'               => $d->jumlah_produk,  // sesuaikan nama kolom di tabel detail
                 ];
             })
                 ->filter()   // buang null
