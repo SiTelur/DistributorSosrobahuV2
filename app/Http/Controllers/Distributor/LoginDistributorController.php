@@ -116,7 +116,6 @@ class LoginDistributorController extends Controller
             return response()->json(['message' => 'Username atau password salah.'], 401);
         }
         $newToken = $user->createToken('sosrobahu_token', ['role:distributor']);
-        $plainText = $newToken->plainTextToken;
         $tokenModel = $newToken->accessToken;
 
         // Hitung expiration berdasarkan config sanctum.expiration (menit)
@@ -131,7 +130,7 @@ class LoginDistributorController extends Controller
 
         return response()->json([
             'message'    => 'Login berhasil.',
-            'token'      => $plainText,
+            'token'      => $tokenModel,
             'expires_at' => $expiresAt,
             'user'       => [
                 'id'           => $user->id_user_distributor,
