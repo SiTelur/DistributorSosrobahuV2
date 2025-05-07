@@ -117,7 +117,7 @@ class LoginAgenController extends Controller
         }
 
         $expiration = config('sanctum.expiration');
-        $token = $user->createToken('sosrobahu_token', ['role:pabrik'], now()->addMinutes($expiration));
+        $token = $user->createToken('sosrobahu_token', ['role:agen'], now()->addMinutes($expiration));
         $accessToken = $token->accessToken;
 
         $accessToken->forceFill(['user_id' => $user->id_user_agen])->save();
