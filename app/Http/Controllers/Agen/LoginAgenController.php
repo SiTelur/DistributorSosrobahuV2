@@ -116,7 +116,8 @@ class LoginAgenController extends Controller
             return response()->json(['message' => 'Username atau password salah.'], 401);
         }
 
-        $token = $user->createToken('sosrobahu_token', ['role:agen']);
+        $expiration = config('sanctum.expiration');
+        $token = $user->createToken('sosrobahu_token', ['role:pabrik'], now()->addMinutes($expiration));
         $accessToken = $token->accessToken;
 
         $accessToken->forceFill(['user_id' => $user->id_user_agen])->save();
