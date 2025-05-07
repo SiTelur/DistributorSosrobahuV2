@@ -115,20 +115,29 @@ class LoginDistributorController extends Controller
         if ($user === null || !Hash::check($request->password, $user->password)) {
             return response()->json(['message' => 'Username atau password salah.'], 401);
         }
+        $newToken = $user->createToken('sosrobahu_token', ['role:distributor']);
+        $plainText = $newToken->plainTextToken;
+        $tokenModel = $newToken->accessToken;
 
-        $token = $user->createToken('sosrobahu_token', ['role:distributor']);
-        $accessToken = $token->accessToken;
-
-        $accessToken->forceFill(['user_id' => $user->id_user_distributor])->save();
+        // Hitung expiration berdasarkan config sanctum.expiration (menit)
+        $expirationMinutes = config('sanctum.expiration');
+        if ($expirationMinutes) {
+            $expiresAt = $tokenModel->created_at
+                ->addMinutes($expirationMinutes)
+                ->toDateTimeString();
+        } else {
+            $expiresAt = null; // artinya tidak pernah kadaluarsa
+        }
 
         return response()->json([
-            'message' => 'Login berhasil.',
-            'token' => $token,
-            'user' => [
-                'id' => $user->id_user_distributor,
+            'message'    => 'Login berhasil.',
+            'token'      => $plainText,
+            'expires_at' => $expiresAt,
+            'user'       => [
+                'id'           => $user->id_user_distributor,
                 'nama_lengkap' => $user->nama_lengkap,
-                'role' => 'distributor'
-            ]
+                'role'         => 'distributor',
+            ],
         ]);
     }
 }
