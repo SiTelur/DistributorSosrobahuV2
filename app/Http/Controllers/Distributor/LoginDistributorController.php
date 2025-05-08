@@ -120,13 +120,13 @@ class LoginDistributorController extends Controller
         $token = $user->createToken('sosrobahu_token', ['role:distributor'], now()->addMinutes($expiration));
         $accessToken = $token->accessToken;
 
-        $accessToken->forceFill(['user_id' => $user->id_user_agen])->save();
+        $accessToken->forceFill(['user_id' => $user->id_user_distributor])->save();
 
         return response()->json([
             'message' => 'Login berhasil.',
             'token' => $token,
             'user' => [
-                'id' => $user->id_user_agen,
+                'id' => $user->id_user_distributor,
                 'nama_lengkap' => $user->nama_lengkap,
                 'role' => 'distributor'
             ]
