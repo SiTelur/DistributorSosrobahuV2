@@ -127,7 +127,7 @@ class PesananMasukAgenController extends Controller
                 'id_order' => $pesanan->id_order,
                 'tanggal' => Carbon::parse($pesanan->tanggal)->format('d F Y'),
                 'nama_sales' => optional($pesanan->userSales)->nama_lengkap ?? 'Tidak Ditemukan',
-                'total_harga' => $pesanan->total_harga,
+                'total_harga' => $pesanan->total,
                 'status_pemesanan' => $pesanan->status_pemesanan,
             ];
         });
