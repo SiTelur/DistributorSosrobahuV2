@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 use App\Models\OrderAgen;
+use App\Models\MasterBarang;
 use App\Models\OrderDetailAgen;
 use App\Models\UserDistributor;
 
@@ -333,28 +334,59 @@ class OrderAgenController extends Controller
 
     public function riwayatOrderAPI(Request $request)
     {
-        try {
-            $id_user_agen = $request->user()->currentAccessToken()->user_id;
+        $id_user_agen = $request->user()
+            ->currentAccessToken()
+            ->user_id;
 
-            // Get orders with formatted date
-            $orderAgens = OrderAgen::where('id_user_agen', $id_user_agen)
-                ->orderByDesc('id_order')
-                ->paginate(10)
-                ->through(fn($order) => [
-                    'id_order' => $order->id_order,
-                    'jumlah' => $order->jumlah,
-                    'total' => $order->total,
-                    'tanggal' => Carbon::parse($order->tanggal)->translatedFormat('d F Y'),
-                    'bukti_transfer' => $order->bukti_transfer,
-                    'status_pemesanan' => $order->status_pemesanan
-                ]);
+        // 1. Ambil orders & paginate
+        $orders = OrderAgen::where('id_user_agen', $id_user_agen)
+            ->orderByDesc('id_order')
+            ->paginate(10);
 
-            return response()->json([
-                'message' => 'Riwayat pesanan berhasil diambil',
-                'orders' => $orderAgens
-            ], 200);
-        } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
-        }
+        // 2. Transform setiap item di collection
+        $orders->getCollection()->transform(function ($order) {
+            // a) Ambil detail per order dari tabel order_detail_agen
+            $detail = DB::table('order_detail_agen')
+                ->where('id_order', $order->id_order)
+                ->get();
+
+            // b) Ambil data master_barang sesuai id_master_barang
+            $masterData = MasterBarang::whereIn(
+                'id_master_barang',
+                $detail->pluck('id_master_barang')->toArray()
+            )
+                ->get()
+                ->keyBy('id_master_barang');
+
+            // c) Gabungkan detail + info produk
+            $detailProduk = $detail->map(function ($d) use ($masterData) {
+                $brg = $masterData[$d->id_master_barang] ?? null;
+                if (! $brg) return null;
+
+                return [
+                    'id_master_barang'    => $brg->id_master_barang,
+                    'nama_rokok'         => $brg->nama_rokok,         // sesuaikan nama kolom di MasterBarang
+                    'harga_karton_pabrik'        => $brg->harga_karton_pabrik,       // sesuaikan kolom harga
+                    'quantity'            => $d->jumlah_produk,        // sesuaikan kolom di detail
+                ];
+            })
+                ->filter()   // buang null
+                ->values(); // reindex
+
+            // d) Bentuk response untuk tiap order
+            return [
+                'id_order'          => $order->id_order,
+                'jumlah'            => $order->jumlah,
+                'total'             => $order->total,
+                'tanggal'           => Carbon::parse($order->tanggal)
+                    ->translatedFormat('d F Y'),
+                'status_pemesanan'  => $order->status_pemesanan,
+                'bukti_transfer'    => $order->bukti_transfer,
+                'detail_produk'     => $detailProduk,
+            ];
+        });
+
+        // 3. Kembalikan JSON dengan struktur yang sama seperti distributor
+        return response()->json($orders);
     }
 }
