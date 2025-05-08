@@ -118,19 +118,18 @@ class LoginDistributorController extends Controller
 
         $expiration = config('sanctum.expiration');
         $token = $user->createToken('sosrobahu_token', ['role:pabrik'], now()->addMinutes($expiration));
-        $tokenModel = $token->accessToken;
+        $accessToken = $token->accessToken;
 
-        // Hitung expiration berdasarkan config sanctum.expiration (menit)
+        $accessToken->forceFill(['user_id' => $user->id_user_agen])->save();
 
         return response()->json([
-            'message'    => 'Login berhasil.',
-            'token'      => $tokenModel,
-
-            'user'       => [
-                'id'           => $user->id_user_distributor,
+            'message' => 'Login berhasil.',
+            'token' => $token,
+            'user' => [
+                'id' => $user->id_user_agen,
                 'nama_lengkap' => $user->nama_lengkap,
-                'role'         => 'distributor',
-            ],
+                'role' => 'distributor'
+            ]
         ]);
     }
 }
