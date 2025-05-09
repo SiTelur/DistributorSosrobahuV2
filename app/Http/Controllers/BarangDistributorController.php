@@ -292,4 +292,52 @@ class BarangDistributorController extends Controller
             'availableYears' => $availableYears
         ]);
     }
+
+    public function listBarangDistributorAgenAPI(Request $request)
+    {
+        // 1) Ambil id agen dari token
+        $idUserAgen = $request->user()
+            ->currentAccessToken()
+            ->user_id;
+
+        // 2) Dapatkan id distributor dari tabel user_agen
+        $idUserDistributor = DB::table('user_agen')
+            ->where('id_user_agen', $idUserAgen)
+            ->value('id_user_distributor');
+
+        if (! $idUserDistributor) {
+            return response()->json([
+                'error' => 'Distributor untuk agen ini tidak ditemukan'
+            ], 404);
+        }
+
+        // 3) Ambil semua barang milik distributor itu, join ke master_barang untuk nama & harga pabrik
+        $barangDistributor = DB::table('tbl_barang_disitributor as bd')
+            ->join('master_barang as mb', 'bd.id_master_barang', '=', 'mb.id_master_barang')
+            ->where('bd.id_user_distributor', $idUserDistributor)
+            ->select([
+                'mb.id_master_barang',
+                'mb.nama_rokok',
+                'mb.harga_karton_pabrik',
+                'bd.harga_distributor',
+                'bd.stok_karton'
+            ])
+            ->get();
+
+        // 4) Ambil info pabrik (anggap hanya ada satu)
+        $distributor = DB::table('user_distributor')
+            ->select('nama_lengkap', 'nama_bank', 'no_rek')
+            ->where('id_user_distributor', $idUserDistributor)
+            ->first();
+
+        // 5) Kembalikan response yang sama bentuknya dengan contoh distributor
+        return response()->json([
+            'barangDistributor' => $barangDistributor,
+            'pabrik'            => [
+                'nama_lengkap' => $distributor->nama_lengkap,
+                'nama_bank'    => $distributor->nama_bank,
+                'no_rek'       => $distributor->no_rek,
+            ],
+        ], 200);
+    }
 }

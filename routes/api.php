@@ -74,6 +74,7 @@ Route::middleware(['auth:sanctum', 'role:agen'])->group(function () {
     Route::get('/agen/pesananMasuk', [PesananMasukAgenController::class, 'pesananMasukAgenAPI']);
     Route::get('/agen/pesananMasuk/{idPesanan}', [PesananMasukAgenController::class, 'detailPesananMasukAgenAPI']);
     Route::post('/agen/pesananMasuk/{idPesanan}', [PesananMasukAgenController::class, 'updateStatusPesananAPI']);
+    Route::get("/agen/pilihBarang", [BarangDistributorController::class, 'listBarangDistributorAgenAPI']);
 
     Route::post('/agen/order', [OrderAgenController::class, 'storeOrder']);
     Route::get('/agen/riwayatOrder', [OrderAgenController::class, 'riwayatOrderAPI']);
