@@ -203,6 +203,10 @@ class BarangDistributorController extends Controller
         $barangDistributors = BarangDistributor::where('id_user_distributor', $id_user_distributor)
             ->with('masterBarang:id_master_barang,nama_rokok,gambar')
             ->get();
+        $namaDistributor = DB::table('user_distributor')
+            ->where('id_user_distributor', $id_user_distributor)
+            ->value('nama_lengkap');
+        
 
         // Mengambil semua tahun dari tabel pesanan agen berdasarkan tanggal pesanan
         $availableYears = OrderAgen::where('id_user_distributor', $id_user_distributor)
@@ -289,7 +293,8 @@ class BarangDistributorController extends Controller
             'topProductName' => $topProductName,
             'totalAgen' => $totalAgen,
             'pesananPerBulan' => $pesananPerBulan,
-            'availableYears' => $availableYears
+            'availableYears' => $availableYears,
+            'nama_distributor'   => $namaDistributor
         ]);
     }
 
