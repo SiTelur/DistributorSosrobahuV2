@@ -333,7 +333,7 @@ class BarangDistributorController extends Controller
         // 5) Kembalikan response yang sama bentuknya dengan contoh distributor
         return response()->json([
             'barangDistributor' => $barangDistributor,
-            'pabrik'            => [
+            'distributor'            => [
                 'nama_lengkap' => $distributor->nama_lengkap,
                 'nama_bank'    => $distributor->nama_bank,
                 'no_rek'       => $distributor->no_rek,
