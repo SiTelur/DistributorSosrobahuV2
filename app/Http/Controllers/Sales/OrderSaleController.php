@@ -461,13 +461,15 @@ class OrderSaleController extends Controller
             ->with('masterBarang:id_master_barang,nama_rokok,gambar') // Eager load only needed fields
             ->get();
 
+
         // Transform data into a structured response
         $data = $barangAgens->map(function ($item) {
             return [
-                'id_barang_agen' => $item->id_user_agen,
-                'id_master_barang' => $item->id_master_barang,
-                'nama_rokok' => optional($item->masterBarang)->nama_rokok, // Use optional() to prevent errors if null
-                'gambar' => optional($item->masterBarang)->gambar,
+                'id_barang_agen'    => $item->id_user_agen,
+                'id_master_barang'  => $item->id_master_barang,
+                'nama_rokok'        => optional($item->masterBarang)->nama_rokok,
+                'gambar'            => optional($item->masterBarang)->gambar,
+                'harga'             => $item->harga_agen,
             ];
         });
 
