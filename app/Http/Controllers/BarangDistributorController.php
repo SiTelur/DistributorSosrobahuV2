@@ -319,6 +319,7 @@ class BarangDistributorController extends Controller
                 'mb.id_master_barang',
                 'mb.nama_rokok',
                 'mb.harga_karton_pabrik',
+                'mb.gambar',
                 'bd.harga_distributor',
                 'bd.stok_karton'
             ])
