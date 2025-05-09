@@ -405,9 +405,9 @@ class OrderSaleController extends Controller
     public function dashboardSalesAPI(Request $request)
     {
         $id_user_sales = $request->user()->currentAccessToken()->user_id;
-        $totalPrice = OrderSale::where('status_pemesanan', 1)
+        $totalPrice = intval(OrderSale::where('status_pemesanan', 1)
             ->where('id_user_sales', $id_user_sales)
-            ->sum('total');
+            ->sum('total'));
 
         // Menghitung jumlah toko berdasarkan id_user_sales
         $jumlahToko = DaftarToko::where('id_user_sales', $id_user_sales)->count();
