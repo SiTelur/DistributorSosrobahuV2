@@ -13,6 +13,7 @@ use App\Models\KunjunganToko;
 use App\Models\UserAgen;
 use App\Models\UserSales;
 use Carbon\Carbon;
+use App\Models\MasterBarang;
 
 class OrderSaleController extends Controller
 {
@@ -553,24 +554,70 @@ class OrderSaleController extends Controller
 
     public function riwayatOrderAPI(Request $request)
     {
-        // Ambil id_user_sales dari token
-        $id_user_sales = $request->user()->currentAccessToken()->user_id;
+        // 1. Ambil id_user_sales & cari id_user_agen yang terkait
+        $id_user_sales = $request->user()
+            ->currentAccessToken()
+            ->user_id;
+        $id_user_agen = UserSales::where('id_user_sales', $id_user_sales)
+            ->value('id_user_agen');
 
-        // Mengambil pesanan yang sesuai dengan id_user_sales dan mengurutkan berdasarkan ID terbesar
-        $orderSales = OrderSale::where('id_user_sales', $id_user_sales)
-            ->orderBy('id_order', 'desc')
+        // 2. Ambil orders & paginate
+        $orders = OrderSale::where('id_user_sales', $id_user_sales)
+            ->orderByDesc('id_order')
             ->paginate(10);
 
-        // Format tanggal menggunakan Carbon
-        $orderSales->getCollection()->transform(function ($order) {
-            $order->tanggal = Carbon::parse($order->tanggal)->toDateTimeString();
-            return $order;
+        // 3. Transform setiap order
+        $orders->getCollection()->transform(function ($order) use ($id_user_agen) {
+            // a) ambil detail per order
+            $detail = DB::table('order_detail_sales')
+                ->where('id_order', $order->id_order)
+                ->get();
+
+            // b) ambil data produk master
+            $masterData = MasterBarang::whereIn(
+                'id_master_barang',
+                $detail->pluck('id_master_barang')->toArray()
+            )
+                ->get()
+                ->keyBy('id_master_barang');
+
+            // c) ambil harga agen untuk tiap produk
+            $hargaAgenData = DB::table('tbl_barang_agen')
+                ->where('id_user_agen', $id_user_agen)
+                ->whereIn('id_master_barang', $detail->pluck('id_master_barang')->toArray())
+                ->get()
+                ->keyBy('id_master_barang');
+
+            // d) gabungkan semuanya
+            $detailProduk = $detail->map(function ($d) use ($masterData, $hargaAgenData) {
+                $brg      = $masterData[$d->id_master_barang]    ?? null;
+                $hargaAgen = $hargaAgenData[$d->id_master_barang]->harga_agen ?? null;
+                if (! $brg) return null;
+
+                return [
+                    'id_master_barang' => $brg->id_master_barang,
+                    'nama_rokok'       => $brg->nama_rokok,
+                    'harga_agen'       => $hargaAgen,
+                    'quantity'         => $d->jumlah_produk,
+                ];
+            })
+                ->filter()  // buang null
+                ->values(); // reindex
+
+            // e) bentuk response per order
+            return [
+                'id_order'         => $order->id_order,
+                'jumlah'           => $order->jumlah,
+                'total'            => $order->total,
+                'tanggal'          => Carbon::parse($order->tanggal)
+                    ->translatedFormat('d F Y'),
+                'status_pemesanan' => $order->status_pemesanan,
+                'bukti_transfer'   => $order->bukti_transfer,
+                'detail_produk'    => $detailProduk,
+            ];
         });
 
-        // Mengembalikan response dalam format JSON
-        return response()->json([
-            'message' => 'Riwayat pesanan berhasil diambil',
-            'orders' => $orderSales,
-        ], 200);
+        // 4. kembalikan pagination + data
+        return response()->json($orders);
     }
 }
