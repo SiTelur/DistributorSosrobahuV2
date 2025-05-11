@@ -421,6 +421,10 @@ class OrderSaleController extends Controller
             ->groupBy('id_master_barang')
             ->orderByDesc('total_quantity')
             ->first();
+        
+        $namaLengkapSales = DB::table('user_sales')
+            ->where('id_user_sales', $id_user_sales)
+            ->value('nama_lengkap');
 
         // Mengambil nama produk terlaris
         $topProductName = $topProduct
@@ -447,6 +451,7 @@ class OrderSaleController extends Controller
             'jumlah_toko' => $jumlahToko,
             'top_product' => $topProductName,
             'total_stok' => $totalStok,
+            'nama_sales' => $namaLengkapSales,
         ]);
     }
 

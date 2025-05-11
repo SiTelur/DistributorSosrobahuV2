@@ -194,6 +194,11 @@ class BarangPabrikController extends Controller
             ->where('order_distributor.status_pemesanan', 1)
             ->get();
 
+        $idUserPabrik = auth()->id();
+
+        $namaLengkapPabrik = DB::table('user_pabrik')
+            ->where('id_user_pabrik', $idUserPabrik)
+            ->value('nama_lengkap');
 
         // Mengelompokkan pesanan berdasarkan bulan dan melakukan penotalan omset per bulan
         $pesananPerBulan = $pesananMasuks->groupBy(function ($item) {
@@ -309,7 +314,8 @@ class BarangPabrikController extends Controller
             'totalPendapatan'   => $totalPendapatan,
             'topProductName'    => $topProductName,
             'totalDistributor'  => $totalDistributor,
-            'pesananPerbulan'  => $pesananPerBulan
+            'pesananPerbulan'  => $pesananPerBulan,
+            'nama_pabrik' => $namaLengkapPabrik,
 
         ]);
     }

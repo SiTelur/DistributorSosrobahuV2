@@ -223,6 +223,10 @@ class BarangAgenController extends Controller
         // Siapkan array untuk menyimpan data stok
         $stokData = [];
 
+        $namaLengkapAgen = DB::table('user_agen')
+            ->where('id_user_agen', $id_user_distributor)
+            ->value('nama_lengkap');
+
         foreach ($barangAgens as $barangAgen) {
             $idMasterBarang = $barangAgen->id_master_barang;
 
@@ -303,7 +307,8 @@ class BarangAgenController extends Controller
             'total_stok_keseluruhan' => $totalStokKeseluruhan,
             'top_product' => $topProductName,
             'total_pendapatan' => $totalPendapatan,
-            'total_sales' => $totalSales
+            'total_sales' => $totalSales,
+            'nama_agen' => $namaLengkapAgen,    
         ]);
     }
 }
