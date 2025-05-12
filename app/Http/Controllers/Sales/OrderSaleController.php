@@ -14,6 +14,7 @@ use App\Models\UserAgen;
 use App\Models\UserSales;
 use Carbon\Carbon;
 use App\Models\MasterBarang;
+use Illuminate\Validation\ValidationException;
 
 class OrderSaleController extends Controller
 {
@@ -489,69 +490,93 @@ class OrderSaleController extends Controller
 
     public function storeOrderAPI(Request $request)
     {
-        $validatedData = $request->validate([
-            'payment_proof' => 'nullable|file|mimes:jpeg,png,pdf|max:2048',
-            'quantities' => 'required|array',
-            'quantities.*' => 'required|integer|min:1',
-            'total_items' => 'required|integer|min:1',
-            'total_amount' => 'required|numeric|min:0',
-        ]);
-
-        $path = $request->hasFile('payment_proof')
-            ? $request->file('payment_proof')->store('bukti_transfer', 'public')
-            : null;
-
-        $id_user_sales = $request->user()->currentAccessToken()->user_id;
-        $id_user_agen = DB::table('users')->where('id_user_sales', $id_user_sales)->value('id_user_agen');
-
-
-        return DB::transaction(function () use ($validatedData, $id_user_sales, $id_user_agen, $path) {
-            $order = OrderSale::create([
-                'id_user_sales' => $id_user_sales,
-                'id_user_agen' => $id_user_agen,
-                'jumlah' => $validatedData['total_items'],
-                'total' => $validatedData['total_amount'],
-                'tanggal' => now(),
-                'bukti_transfer' => $path,
-                'status_pemesanan' => 0,
-                'created_at' => now(),
-                'updated_at' => now(),
+        try {
+            // 1. Validasi input
+            $validated = $request->validate([
+                'total_items'                  => 'required|integer|min:1',
+                'total_amount'                 => 'required|numeric|min:1',
+                'quantities'                   => 'required|array',
+                'quantities.*.id_barang_agen'  => 'required|integer|exists:tbl_barang_agen,id_barang_agen',
+                'quantities.*.quantity'        => 'required|integer|min:1',
+                'payment_proof'                => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
             ]);
 
-            $orderDetails = [];
-            foreach ($validatedData['quantities'] as $productId => $quantity) {
-                $product = DB::table('tbl_barang_agen')
-                    ->where('id_master_barang', $productId)
-                    ->where('id_user_agen', $id_user_agen)
-                    ->first();
+            // 2. Simpan file jika ada
+            $path = $request->hasFile('payment_proof')
+                ? $request->file('payment_proof')->store('bukti_transfer', 'public')
+                : null;
 
-                if (!$product) {
-                    return response()->json(['error' => 'Produk tidak ditemukan'], 404);
-                }
-
-                $orderDetails[] = [
-                    'id_order' => $order->id_order,
-                    'id_user_agen' => $id_user_agen,
-                    'id_user_sales' => $id_user_sales,
-                    'id_master_barang' => $productId,
-                    'id_barang_agen' => $product->id_barang_agen,
-                    'jumlah_produk' => $quantity,
-                    'jumlah_harga_item' => $product->harga_agen * $quantity,
-                    'harga_tetap_nota' => $product->harga_agen,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ];
+            // 3. Ambil user IDs
+            $id_user_sales = $request->user()
+                ->currentAccessToken()
+                ->user_id;
+            $id_user_agen = DB::table('user_sales')
+                ->where('id_user_sales', $id_user_sales)
+                ->value('id_user_agen');
+            if (! $id_user_agen) {
+                return response()->json(['error' => 'Agen tidak ditemukan'], 404);
             }
 
-            OrderDetailSales::insert($orderDetails);
+            // 4. Buat order + detail dalam satu transaksi
+            return DB::transaction(function () use ($validated, $id_user_sales, $id_user_agen, $path) {
+                // a) Create OrderSale
+                $order = OrderSale::create([
+                    'id_user_sales'    => $id_user_sales,
+                    'id_user_agen'     => $id_user_agen,
+                    'jumlah'           => $validated['total_items'],
+                    'total'            => $validated['total_amount'],
+                    'tanggal'          => now(),
+                    'bukti_transfer'   => $path,
+                    'status_pemesanan' => 0, // pending
+                ]);
+
+                // b) Siapkan array bulk-insert
+                $orderDetails = [];
+                foreach ($validated['quantities'] as $item) {
+                    $idBarangAgen = $item['id_barang_agen'];
+                    $qty          = $item['quantity'];
+
+                    // Ambil record tbl_barang_agen
+                    $prod = DB::table('tbl_barang_agen')
+                        ->where('id_barang_agen', $idBarangAgen)
+                        ->first();
+
+                    // Dari sana kita bisa ambil id_master_barang & harga_agen
+                    $idMasterBarang = $prod->id_master_barang;
+                    $hargaAgen      = $prod->harga_agen;
+
+                    $orderDetails[] = [
+                        'id_order'          => $order->id_order,
+                        'id_user_agen'      => $id_user_agen,
+                        'id_user_sales'     => $id_user_sales,
+                        'id_master_barang'  => $idMasterBarang,
+                        'id_barang_agen'    => $idBarangAgen,
+                        'jumlah_produk'     => $qty,
+                        'jumlah_harga_item' => $hargaAgen * $qty,
+                        'harga_tetap_nota'  => $hargaAgen,
+                        'created_at'        => now(),
+                        'updated_at'        => now(),
+                    ];
+                }
+
+                // c) Bulk insert detail
+                OrderDetailSales::insert($orderDetails);
+
+                // d) Response sukses
+                return response()->json([
+                    'message'        => 'Pesanan berhasil dikirim!',
+                    'order_id'       => $order->id_order,
+                    'order_details'  => $orderDetails,
+                ], 201);
+            });
+        } catch (\Exception $e) {
 
             return response()->json([
-                'message' => 'Pesanan berhasil dikirim!',
-                'order_id' => $order->id_order,
-                'total' => $order->total,
-            ], 201);
-        });
+                'error' => $e->getMessage()
+            ], $e instanceof ValidationException ? 422 : 500);
+        }
     }
+
 
     public function riwayatOrderAPI(Request $request)
     {
