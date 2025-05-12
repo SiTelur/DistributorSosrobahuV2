@@ -422,7 +422,7 @@ class OrderSaleController extends Controller
             ->groupBy('id_master_barang')
             ->orderByDesc('total_quantity')
             ->first();
-        
+
         $namaLengkapSales = DB::table('user_sales')
             ->where('id_user_sales', $id_user_sales)
             ->value('nama_lengkap');
@@ -471,11 +471,12 @@ class OrderSaleController extends Controller
         // Transform data into a structured response
         $data = $barangAgens->map(function ($item) {
             return [
-                'id_barang_agen'    => $item->id_user_agen,
+                'id_barang_agen'    => $item->id_barang_agen,
                 'id_master_barang'  => $item->id_master_barang,
                 'nama_rokok'        => optional($item->masterBarang)->nama_rokok,
                 'gambar'            => optional($item->masterBarang)->gambar,
                 'harga'             => $item->harga_agen,
+                'stok' => $item->stok_karton
             ];
         });
 
