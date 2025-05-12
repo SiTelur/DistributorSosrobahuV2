@@ -156,12 +156,14 @@ class DaftarTokoController extends Controller
 
         // Mengambil daftar toko berdasarkan id_user_sales dengan pagination
         $toko = DaftarToko::where('id_user_sales', $id_user_sales)
+            ->with(['kunjunganToko' => function ($q) {
+                $q->orderBy('tanggal', 'desc')->take(3);
+            }])
             ->paginate(5);
 
-        // Mengembalikan response dalam format JSON
         return response()->json([
-            'message' => 'Daftar toko berhasil diambil',
-            'stores' => $toko,
+            'message' => 'Daftar toko + 2 kunjungan terakhir per toko berhasil diambil',
+            'stores'  => $toko,
         ], 200);
     }
 
