@@ -459,33 +459,49 @@ class OrderSaleController extends Controller
 
     public function getListBarangOrderAPI(Request $request)
     {
-        // Get user ID from current access token
+        // 1) Ambil id_sales dan id_agen dari token
         $id_user_sales = $request->user()->currentAccessToken()->user_id;
+        $id_user_agen   = UserSales::where('id_user_sales', $id_user_sales)
+            ->value('id_user_agen');
 
-        $id_user_agen = UserSales::where('id_user_sales', $id_user_sales)->value('id_user_agen');
-        // Retrieve BarangAgen with related master_barang data in a single query
+        // 2) Ambil semua barang milik agen itu, eager load masterBarang
         $barangAgens = BarangAgen::where('id_user_agen', $id_user_agen)
-            ->with('masterBarang:id_master_barang,nama_rokok,gambar') // Eager load only needed fields
+            ->with('masterBarang:id_master_barang,nama_rokok,gambar')
             ->get();
 
-
-        // Transform data into a structured response
+        // 3) Transform data barang
         $data = $barangAgens->map(function ($item) {
             return [
-                'id_barang_agen'    => $item->id_barang_agen,
-                'id_master_barang'  => $item->id_master_barang,
-                'nama_rokok'        => optional($item->masterBarang)->nama_rokok,
-                'gambar'            => optional($item->masterBarang)->gambar,
-                'harga'             => $item->harga_agen,
-                'stok' => $item->stok_karton
+                'id_barang_agen'   => $item->id_barang_agen,
+                'id_master_barang' => $item->id_master_barang,
+                'nama_rokok'       => optional($item->masterBarang)->nama_rokok,
+                'gambar'           => optional($item->masterBarang)->gambar,
+                'harga'            => $item->harga_agen,
+                'stok'             => $item->stok_karton,
             ];
         });
 
-        // Return JSON response
+        // 4) Dapatkan id distributor dari tabel user_agen
+        $id_user_distributor = DB::table('user_agen')
+            ->where('id_user_agen', $id_user_agen)
+            ->value('id_user_distributor');
+
+        // 5) Query info distributor (nama, bank, no_rek)
+        $distributor = DB::table('user_distributor')
+            ->select('nama_lengkap', 'nama_bank', 'no_rek')
+            ->where('id_user_distributor', $id_user_distributor)
+            ->first();
+
+        // 6) Kembalikan response lengkap
         return response()->json([
-            'success' => true,
-            'data' => $data,
-        ]);
+            'success'     => true,
+            'data'        => $data,
+            'distributor' => [
+                'nama_lengkap' => optional($distributor)->nama_lengkap,
+                'nama_bank'    => optional($distributor)->nama_bank,
+                'no_rek'       => optional($distributor)->no_rek,
+            ],
+        ], 200);
     }
 
     public function storeOrderAPI(Request $request)
