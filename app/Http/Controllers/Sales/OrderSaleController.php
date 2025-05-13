@@ -499,7 +499,7 @@ class OrderSaleController extends Controller
             'distributor' => [
                 'nama_lengkap' => optional($distributor)->nama_lengkap,
                 'nama_bank'    => optional($distributor)->nama_bank,
-                'no_rek'       => optional($distributor)->no_rek,
+                'no_rek'       => strval(optional($distributor)->no_rek),
             ],
         ], 200);
     }
