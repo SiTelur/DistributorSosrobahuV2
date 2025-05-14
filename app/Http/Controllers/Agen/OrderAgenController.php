@@ -301,20 +301,20 @@ class OrderAgenController extends Controller
                     ->where('id_barang_distributor', $item['id_barang_distributor'])
                     ->first();
 
-                if (!$product) {
-                    return response()->json(['error' => 'Product not found'], 404);
-                }
-
+                // jika struktur tabel order_detail_agen kamu butuh kolom id_master_barang
                 $orderDetails[] = [
-                    'id_order' => $order->id_order,
+                    'id_order'           => $order->id_order,
                     'id_user_distributor' => $id_user_distributor,
-                    'id_user_agen' => $id_user_agen,
-                    'id_barang_distributor' => $product->id_barang_distributor,
-                    'jumlah_produk' => $item['quantity'],
-                    'jumlah_harga_item' => $product->harga_distributor * $item['quantity'],
-                    'harga_tetap_nota' => $product->harga_distributor,
-                    'created_at' => now(),
-                    'updated_at' => now(),
+                    'id_user_agen'       => $id_user_agen,
+
+                    // <<< ini dia: pakai id_master_barang, bukan id_barang_distributor
+                    'id_master_barang'   => $product->id_master_barang,
+
+                    'jumlah_produk'      => $item['quantity'],
+                    'jumlah_harga_item'  => $product->harga_distributor * $item['quantity'],
+                    'harga_tetap_nota'   => $product->harga_distributor,
+                    'created_at'         => now(),
+                    'updated_at'         => now(),
                 ];
             }
 
