@@ -309,7 +309,7 @@ class OrderAgenController extends Controller
 
                     // <<< ini dia: pakai id_master_barang, bukan id_barang_distributor
                     'id_master_barang'   => $product->id_master_barang,
-
+                    'id_barang_distributor' => $product->id_barang_distributor,
                     'jumlah_produk'      => $item['quantity'],
                     'jumlah_harga_item'  => $product->harga_distributor * $item['quantity'],
                     'harga_tetap_nota'   => $product->harga_distributor,
