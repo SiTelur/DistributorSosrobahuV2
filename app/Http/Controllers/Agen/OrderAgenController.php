@@ -309,7 +309,6 @@ class OrderAgenController extends Controller
                     'id_order' => $order->id_order,
                     'id_user_distributor' => $id_user_distributor,
                     'id_user_agen' => $id_user_agen,
-                    'id_master_barang' => $item['id_master_barang'],
                     'id_barang_distributor' => $product->id_barang_distributor,
                     'jumlah_produk' => $item['quantity'],
                     'jumlah_harga_item' => $product->harga_distributor * $item['quantity'],
