@@ -264,7 +264,7 @@ class OrderAgenController extends Controller
                 'total_items' => 'required|integer|min:1',
                 'total_amount' => 'required|numeric|min:1',
                 'quantities' => 'required|array',
-                'quantities.*.id_master_barang' => 'required|integer|exists:tbl_barang_disitributor,id_barang_distributor',
+                'quantities.*.id_barang_distributor' => 'required|integer|exists:tbl_barang_disitributor,id_barang_distributor',
                 'quantities.*.quantity' => 'required|integer|min:1',
                 'payment_proof' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
             ]);
