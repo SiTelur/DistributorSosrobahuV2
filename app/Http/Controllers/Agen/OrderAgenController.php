@@ -298,7 +298,7 @@ class OrderAgenController extends Controller
             $orderDetails = [];
             foreach ($validated['quantities'] as $item) {
                 $product = DB::table('tbl_barang_disitributor')
-                    ->where('id_master_barang', $item['id_master_barang'])
+                    ->where('id_barang_distributor', $item['id_barang_distributor'])
                     ->first();
 
                 if (!$product) {
