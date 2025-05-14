@@ -447,13 +447,29 @@ class OrderSaleController extends Controller
         // Mengurangi stok berdasarkan produk yang terjual
         $totalStok -= $totalPenjualan;
 
-        // Mengembalikan response dalam format JSON
+        $id_user_agen = DB::table('user_sales')
+            ->where('id_user_sales', $id_user_sales)
+            ->value('id_user_agen');
+
+        $daftarProdukAgen = DB::table('tbl_barang_agen AS ba')
+            ->join('master_barang AS mb', 'ba.id_master_barang', '=', 'mb.id_master_barang')
+            ->where('ba.id_user_agen', $id_user_agen)
+            ->select([
+                'ba.id_barang_agen',
+                'mb.nama_rokok AS nama_produk',
+                'mb.gambar',
+                'ba.harga_agen',
+                'ba.stok_karton'
+            ])
+            ->get();
+
         return response()->json([
-            'total_price' => $totalPrice,
-            'jumlah_toko' => $jumlahToko,
-            'top_product' => $topProductName,
-            'total_stok' => $totalStok,
-            'nama_sales' => $namaLengkapSales,
+            'total_price'       => $totalPrice,
+            'jumlah_toko'       => $jumlahToko,
+            'top_product'       => $topProductName,
+            'total_stok'        => $totalStok,
+            'nama_sales'        => $namaLengkapSales,
+            'daftar_produk_agen' => $daftarProdukAgen,   // ini daftar produk agen
         ]);
     }
 
