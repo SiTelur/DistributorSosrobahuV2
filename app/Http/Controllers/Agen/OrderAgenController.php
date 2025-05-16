@@ -323,7 +323,7 @@ class OrderAgenController extends Controller
 
             return response()->json([
                 'message' => 'Pesanan berhasil dikirim!',
-                'order_id' => $order->id_order,
+                'id_order' => $order->id_order,
                 'order_details' => $orderDetails
             ], 201);
         } catch (\Exception $e) {

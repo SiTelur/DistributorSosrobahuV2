@@ -9,6 +9,7 @@ use Carbon\Carbon;
 use App\Models\RestockPabrik;
 use App\Models\RestockDetailPabrik;
 use App\Models\MasterBarang;
+use Barryvdh\DomPDF\Facade\Pdf;  // alias “PDF”
 
 class RestockPabrikController extends Controller
 {
@@ -73,6 +74,40 @@ class RestockPabrikController extends Controller
 
         //Menampilkan hasil nota format json
         //return response()->json($notaPabrik);
+    }
+
+    public function notaPabrikPdf($idNota)
+    {
+        // Ambil data
+        $restockPabrik = RestockPabrik::where('id_restock', $idNota)->firstOrFail();
+        $namaPabrik    = DB::table('user_pabrik')
+            ->where('id_user_pabrik', $restockPabrik->id_user_pabrik)
+            ->first();
+        $detailItems   = RestockDetailPabrik::where('id_restock', $idNota)->get()
+            ->map(fn($d) => [
+                'nama_rokok'   => DB::table('master_barang')
+                    ->where('id_master_barang', $d->id_master_barang)
+                    ->value('nama_rokok'),
+                'jumlah_item'  => $d->jumlah_produk,
+            ]);
+
+        $notaPabrik = [
+            'tanggal'    => $restockPabrik->tanggal,
+            'id_restock' => $restockPabrik->id_restock,
+            'nama_pabrik' => $namaPabrik->nama_lengkap,
+            'total_item' => $restockPabrik->jumlah,
+            'item_nota'  => $detailItems,
+        ];
+
+        // Generate PDF
+        $pdf = Pdf::loadView('pabrik.cetak-restock', compact('notaPabrik'))
+            ->setPaper('a4', 'portrait');
+
+        // Keluarkan sebagai download
+        return $pdf->download("nota-pabrik-{$idNota}.pdf");
+
+        // Jika Anda lebih suka streaming:
+        // return $pdf->stream("nota-pabrik-{$idNota}.pdf");
     }
 
     // Fitur Restock Pabrik
