@@ -46,14 +46,14 @@ Route::middleware(['auth:sanctum', 'role:pabrik'])->group(function () {
 
     Route::get('/pabrik/pesananMasuk/{idPesanan}', [PesananMasukPabrikController::class, 'detailPesanMasukAPI']);
     Route::post('/pabrik/pesananMasuk/{idPesanan}', [PesananMasukPabrikController::class, 'updateStatusAPI']);
-
+    
     Route::get('/pabrik/restock', [BarangPabrikController::class, 'restockBarangAPI']);
     Route::post('/pabrik/restock', [RestockPabrikController::class, 'storeAPI']);
-
+    
     Route::get('/pabrik/riwayatPabrik', [RestockPabrikController::class, 'riwayatRestockAPI']);
-
-    Route::get('pabrik/nota-pabrik/{idNota}/pdf', [RestockPabrikController::class, 'notaPabrikPdf']);
+    
 });
+Route::get('pabrik/nota-pabrik/{idNota}/pdf', [RestockPabrikController::class, 'notaPabrikPdf']);
 
 
 Route::post('/distributor/login', [LoginDistributorController::class, 'loginDistributorAPI']);
