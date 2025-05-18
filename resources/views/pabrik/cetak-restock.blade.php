@@ -59,11 +59,11 @@
 <body>
 
 <div class="header">
-<img src="{{ public_path('assets/images/logo.png') }}" height="80" alt="Logo">
+{{-- <img src="{{ public_path('assets/images/logo.png') }}" height="80" alt="Logo"> --}}
     <div class="right">
         <div class="title">RESTOCK PRODUK</div>
         <div>{{ $notaPabrik['tanggal'] }}</div>
-        <div>RST1234{{ $notaPabrik['id_restock'] }}</div>
+        <div>{{ $notaPabrik['id_restock'] }}</div>
         <div><strong>Official CV. Santoso Jaya Tembakau</strong></div>
     </div>
 </div>

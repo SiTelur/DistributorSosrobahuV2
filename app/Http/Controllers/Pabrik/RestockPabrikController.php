@@ -285,7 +285,8 @@ class RestockPabrikController extends Controller
             })->filter(); // Buang yang null jika tidak ditemukan
 
             return [
-                'id_restock' => 'RST1234' . $restock->id_restock,
+                // 'id_restock' => 'RST1234' . $restock->id_restock,
+                'id_restock' => $restock->id_restock,
                 'tanggal' => Carbon::parse($restock->tanggal)->format('d/m/Y'),
                 'jumlah' => $restock->jumlah . ' Karton',
                 'detail_produk' => $detailProduk->values()
