@@ -19,6 +19,7 @@ use App\Http\Controllers\Sales\DaftarTokoController;
 use App\Http\Controllers\Sales\KunjunganTokoController;
 use App\Http\Controllers\Sales\LoginSalesController;
 use App\Http\Controllers\Sales\OrderSaleController;
+use App\Models\OrderDistributor;
 use App\Models\OrderSale;
 
 /*
@@ -51,9 +52,8 @@ Route::middleware(['auth:sanctum', 'role:pabrik'])->group(function () {
     Route::post('/pabrik/restock', [RestockPabrikController::class, 'storeAPI']);
     
     Route::get('/pabrik/riwayatPabrik', [RestockPabrikController::class, 'riwayatRestockAPI']);
-    
+    Route::get('pabrik/nota-pabrik/{idNota}/pdf', [RestockPabrikController::class, 'notaPabrikPdf']);
 });
-Route::get('pabrik/nota-pabrik/{idNota}/pdf', [RestockPabrikController::class, 'notaPabrikPdf']);
 
 
 Route::post('/distributor/login', [LoginDistributorController::class, 'loginDistributorAPI']);
@@ -67,6 +67,7 @@ Route::middleware(['auth:sanctum', 'role:distributor'])->group(function () {
     Route::post("/distributor/order", [OrderDistributorController::class, 'storeOrderAPI']);
     Route::get("/distributor/pilihBarang", [BarangPabrikController::class, 'listBarangPabrikDistributorAPI']);
     Route::get("/distributor/riwayatOrder", [OrderDistributorController::class, 'listRiwayatOrderAPI']);
+    Route::get('distributor/nota-distributor/{idNota}/pdf', [OrderDistributorController::class, 'notaDistributorPdf']);
 });
 
 Route::post('/agen/login', [LoginAgenController::class, 'loginAgenAPI']);
@@ -80,6 +81,7 @@ Route::middleware(['auth:sanctum', 'role:agen'])->group(function () {
 
     Route::post('/agen/order', [OrderAgenController::class, 'storeOrder']);
     Route::get('/agen/riwayatOrder', [OrderAgenController::class, 'riwayatOrderAPI']);
+    Route::get('agen/nota-agen/{idNota}/pdf', [OrderAgenController::class, 'notaAgenPdf']);
 });
 
 Route::post('/sales/login', [LoginSalesController::class, 'loginSalesAPI']);
@@ -99,4 +101,5 @@ Route::middleware(['auth:sanctum', 'role:sales'])->group(function () {
     Route::get('/sales/kunjungan/{id_toko}', [KunjunganTokoController::class, 'getKunjunganTokoAPI']);
     Route::post('/sales/kunjungan/{id_toko}', [KunjunganTokoController::class, 'insertKunjunganTokoAPI']);
     Route::post('/sales/kunjungan/update/{id_kunjungan_toko}', [KunjunganTokoController::class, 'updateKunjunganTokoAPI']);
+    Route::get('sales/nota-sales/{idNota}/pdf', [OrderSaleController::class, 'notaSalesPdf']);
 });
