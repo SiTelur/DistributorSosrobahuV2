@@ -10,6 +10,7 @@ use App\Models\OrderDistributor;
 use App\Models\OrderDetailDistributor;
 use App\Models\MasterBarang;
 use App\Models\UserPabrik;
+use Barryvdh\DomPDF\Facade\Pdf;  // alias “PDF”
 
 
 class OrderDistributorController extends Controller
@@ -387,5 +388,50 @@ class OrderDistributorController extends Controller
         });
 
         return response()->json($orders);
+    }
+
+
+    public function notaDistributorPdf($idNota)
+    {
+
+        Carbon::setLocale('id');
+
+        // ambil OrderDistributor sekaligus relasi yang dibutuhkan
+        $order = OrderDistributor::with([
+            'detailDistributor.masterBarang',
+            'pabrik',
+            'distributor',
+        ])->where('id_order', $idNota)->firstOrFail();
+
+        // format item nota
+        $itemNota = $order->detailDistributor->map(function ($detail) {
+            $mb = $detail->masterBarang;
+            return [
+                'nama_rokok'   => $mb ? $mb->nama_rokok : null,
+                'harga_satuan' => $mb ? $mb->harga_karton_pabrik : null,
+                'jumlah_item'  => $detail->jumlah_produk,
+                'jumlah_harga' => $detail->jumlah_harga_item,
+            ];
+        })->toArray();
+
+        // susun payload
+        $notaDistributor = [
+            'tanggal'           => Carbon::parse($order->tanggal)->translatedFormat('d F Y'),
+            'id_order'          => $order->id_order,
+            'nama_pabrik'       => $order->pabrik->nama_lengkap,
+            'no_pabrik'         => $order->pabrik->no_telp,
+            'nama_distributor'  => $order->distributor->nama_lengkap,
+            'no_telp'           => $order->distributor->no_telp,
+            'total_item'        => $order->jumlah,
+            'total_harga'       => $order->total,
+            'item_nota'         => $itemNota,
+        ];
+
+
+        $pdf = Pdf::loadView('distributor.nota-cetak', compact('notaDistributor'))
+            ->setPaper('a4', 'portrait');
+
+        // Keluarkan sebagai download
+        return $pdf->download("nota-pabrik-{$idNota}.pdf");
     }
 }
