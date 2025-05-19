@@ -134,7 +134,7 @@
 
         <div class="note">
             Terima kasih atas kepercayaan Anda kepada kami, <strong>Agen Resmi Sosrobahu</strong>.<br>
-            Untuk bantuan atau informasi lebih lanjut, silakan hubungi Admin Official <strong>CV. Santoso Jaya Tembakau</strong> melalui WhatsApp di {{ $notaAgen['no_pabrik'] }}.
+            Untuk bantuan atau informasi lebih lanjut, silakan hubungi Admin Official  <strong>{{ $notaAgen['nama_distributor'] }}</strong> melalui WhatsApp di {{ $notaAgen['no_distributor'] }}.
         </div>
     </div>
 </body>

@@ -418,8 +418,8 @@ class OrderDistributorController extends Controller
         $notaDistributor = [
             'tanggal'           => Carbon::parse($order->tanggal)->translatedFormat('d F Y'),
             'id_order'          => $order->id_order,
-            'nama_pabrik'       => $order->pabrik->nama_lengkap,
-            'no_pabrik'         => $order->pabrik->no_telp,
+            'nama_pabrik'       => $order->pabrik,
+            'no_pabrik'         => $order->pabrik,
             'nama_distributor'  => $order->distributor->nama_lengkap,
             'no_telp'           => $order->distributor->no_telp,
             'total_item'        => $order->jumlah,
@@ -432,6 +432,6 @@ class OrderDistributorController extends Controller
             ->setPaper('a4', 'portrait');
 
         // Keluarkan sebagai download
-        return $pdf->download("nota-pabrik-{$idNota}.pdf");
+        return $pdf->download("nota-distributor-{$idNota}.pdf");
     }
 }

@@ -11,6 +11,7 @@ use App\Models\OrderAgen;
 use App\Models\MasterBarang;
 use App\Models\OrderDetailAgen;
 use App\Models\UserDistributor;
+use Barryvdh\DomPDF\Facade\Pdf;  // alias “PDF”
 
 class OrderAgenController extends Controller
 {
@@ -387,5 +388,49 @@ class OrderAgenController extends Controller
 
         // 3. Kembalikan JSON dengan struktur yang sama seperti distributor
         return response()->json($orders);
+    }
+
+    public function notaAgenPdf($idNota)
+    {
+        Carbon::setLocale('id');
+
+        // Ambil header + semua relasi (detail, masterBarang, distributor, agen)
+        $order = OrderAgen::with([
+            'detailAgen.masterBarang',
+            'distributor',
+            'agen',
+        ])->where('id_order', $idNota)
+            ->firstOrFail();
+
+        // Map detail jadi array
+        $itemNota = $order->detailAgen->map(function ($d) {
+            return [
+                'nama_rokok'   => optional($d->masterBarang)->nama_rokok,
+                'harga_satuan' => $d->harga_tetap_nota,
+                'jumlah_item'  => $d->jumlah_produk,
+                'jumlah_harga' => $d->jumlah_harga_item,
+            ];
+        })->toArray();
+
+        // Susun payload
+        $notaAgen = [
+            'tanggal'           => Carbon::parse($order->tanggal)
+                ->translatedFormat('d F Y'),
+            'id_order'          => $order->id_order,
+            'nama_distributor'  => $order->distributor->nama_lengkap,
+            'no_distributor'    => $order->distributor->no_telp,
+            'nama_agen'         => $order->agen->nama_lengkap,
+            'no_telp'           => $order->agen->no_telp,
+            'total_item'        => $order->jumlah,
+            'total_harga'       => $order->total,
+            'item_nota'         => $itemNota,
+        ];
+
+
+        $pdf = Pdf::loadView('agen.nota-cetak', compact('notaAgen'))
+            ->setPaper('a4', 'portrait');
+
+        // Keluarkan sebagai download
+        return $pdf->download("nota-agen-{$idNota}.pdf");
     }
 }

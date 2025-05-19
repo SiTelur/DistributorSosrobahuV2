@@ -15,6 +15,7 @@ use App\Models\UserSales;
 use Carbon\Carbon;
 use App\Models\MasterBarang;
 use Illuminate\Validation\ValidationException;
+use Barryvdh\DomPDF\Facade\Pdf;  // alias “PDF”
 
 class OrderSaleController extends Controller
 {
@@ -677,5 +678,50 @@ class OrderSaleController extends Controller
 
         // 4. kembalikan pagination + data
         return response()->json($orders);
+    }
+
+    public function notaSalesPdf($idNota)
+    {
+        Carbon::setLocale('id');
+
+        // Ambil header + semua relasi sekaligus
+        $order = OrderSale::with([
+            'detailSales.masterBarang',
+            'agen',
+            'sales',
+        ])->where('id_order', $idNota)
+            ->firstOrFail();
+
+        // Map detail jadi array
+        $itemNota = $order->detailSales->map(function ($detail) {
+            return [
+                'nama_rokok'   => optional($detail->masterBarang)->nama_rokok,
+                'harga_satuan' => $detail->harga_tetap_nota,
+                'jumlah_item'  => $detail->jumlah_produk,
+                'jumlah_harga' => $detail->jumlah_harga_item,
+            ];
+        })->toArray();
+
+        // Susun payload
+        $notaSales = [
+            'tanggal'       => Carbon::parse($order->tanggal)
+                ->translatedFormat('j F Y'),
+            'id_order'      => $order->id_order,
+            'nama_agen'     => $order->agen->nama_lengkap,
+            'no_agen'       => $order->agen->no_telp,
+            'nama_sales'    => $order->sales->nama_lengkap,
+            'no_telp'       => $order->sales->no_telp,
+            'total_item'    => $order->jumlah,
+            'total_harga'   => $order->total,
+            'item_nota'     => $itemNota,
+        ];
+
+
+
+        $pdf = Pdf::loadView('sales.nota-cetak', compact('notaSales'))
+            ->setPaper('a4', 'portrait');
+
+        // Keluarkan sebagai download
+        return $pdf->download("nota-sales-{$idNota}.pdf");
     }
 }

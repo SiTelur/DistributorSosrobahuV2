@@ -58,4 +58,9 @@ class OrderDetailAgen extends Model
     {
         return $this->belongsTo(BarangDistributor::class, 'id_master_barang', 'id_master_barang');
     }
+
+    public function masterBarang()
+    {
+        return $this->belongsTo(MasterBarang::class, 'id_master_barang');
+    }
 }

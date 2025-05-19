@@ -33,4 +33,19 @@ class OrderAgen extends Model
     {
         return $this->belongsTo(UserAgen::class, 'id_user_agen', 'id_user_agen');
     }
+
+    public function detailAgen()
+    {
+        return $this->hasMany(OrderDetailAgen::class, 'id_order', 'id_order');
+    }
+
+    public function distributor()
+    {
+        return $this->belongsTo(UserDistributor::class, 'id_user_distributor');
+    }
+
+    public function agen()
+    {
+        return $this->belongsTo(UserAgen::class, 'id_user_agen');
+    }
 }
