@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PabrikLoginAPIController;
 use App\Http\Controllers\BarangPabrikController;
+use App\Http\Controllers\Distributor\HargaDistributorController;
 use App\Http\Controllers\Distributor\LoginDistributorController;
 use App\Http\Controllers\Distributor\OrderDistributorController;
 use App\Http\Controllers\Distributor\PesananMasukDistributorController;
@@ -68,6 +69,10 @@ Route::middleware(['auth:sanctum', 'role:distributor'])->group(function () {
     Route::get("/distributor/pilihBarang", [BarangPabrikController::class, 'listBarangPabrikDistributorAPI']);
     Route::get("/distributor/riwayatOrder", [OrderDistributorController::class, 'listRiwayatOrderAPI']);
     Route::get('distributor/nota-distributor/{idNota}/pdf', [OrderDistributorController::class, 'notaDistributorPdf']);
+
+    Route::get('/distributor/pengaturan-harga', [HargaDistributorController::class, "pengaturanHargaAPI"]);
+    Route::post('/distributor/pengaturan-harga', [HargaDistributorController::class, "updateHargaAPI"]);
+    Route::post('/distributor/barang-baru', [HargaDistributorController::class, "getNewBarangAPI"]);
 });
 
 Route::post('/agen/login', [LoginAgenController::class, 'loginAgenAPI']);
