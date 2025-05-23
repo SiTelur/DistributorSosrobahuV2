@@ -134,42 +134,36 @@ class HargaDistributorController extends Controller
         ], 200);
     }
 
-    public function updateHargaAPI(Request $request)
+    public function updateHargaAPI(Request $request, $id)
     {
         $validated = $request->validate([
-            'prices'       => 'required|array',
-            'prices.*'     => 'numeric|min:0',              // setiap nilai harus angka ≥ 0
-            'prices_keys'  => 'prohibited',                 // pastikan client tidak kirim kunci terpisah
+            'prices' => 'required|integer|min:0',
         ]);
 
-        $pricesMap = $validated['prices'];
         $id_user_distributor = $request->user()->currentAccessToken()->user_id;
         $updated   = [];
 
-        foreach ($pricesMap as $settingId => $newPrice) {
-            // Cari record milik user ini
-            $setting = BarangDistributor::where('id_barang_distributor', $settingId)
-                ->where('id_user_distributor', $id_user_distributor)
-                ->first();
 
-            if (! $setting) {
+        $setting = BarangDistributor::where('id_barang_distributor', $id)
+            ->where('id_user_distributor', $id_user_distributor)
+            ->first();
 
-                continue;
-            }
-
-            $setting->harga_distributor = $newPrice;
-            $setting->save();
-
-            $updated[] = [
-                'id'               => $setting->id_barang_distributor,
-                'nama_rokok'       => optional($setting->masterBarang)->nama_rokok,
-                'harga_distributor' => $setting->harga_distributor,
-            ];
+        if (! $setting) {
+            return response()->json([
+                'message' => 'Data tidak ditemukan atau tidak punya akses.'
+            ], 404);
         }
 
+        $setting->harga_distributor = $validated['prices'];
+        $setting->save();
+
+        // 4) Kembalikan JSON
         return response()->json([
-            'updated_count' => count($updated),
-            'data'          => $updated,
+            'message' => 'Harga berhasil diperbarui.',
+            'data'    => [
+                'id'                => $setting->id_barang_distributor,
+                'harga_distributor' => $setting->harga_distributor,
+            ],
         ], 200);
     }
 
@@ -193,5 +187,62 @@ class HargaDistributorController extends Controller
             'count'   => $newProducts->count(),
             'data'    => $newProducts
         ], 200);
+    }
+
+    public function addNewBarangAPI(Request $request)
+    {
+        // 1. Validasi input
+        $validated = $request->validate([
+            'products'   => 'required|array',
+            'products.*' => 'integer|exists:master_barang,id_master_barang',
+        ]);
+
+        $distributorId  = $request->user()->currentAccessToken()->user_id;
+
+
+        // 2. (Opsional) hindari duplikat: cari produk yang sudah terdaftar
+        $existing = BarangDistributor::where('id_user_distributor', $distributorId)
+            ->whereIn('id_master_barang', $validated['products'])
+            ->pluck('id_master_barang')
+            ->all();
+
+        $toInsertIds = array_diff($validated['products'], $existing);
+
+        if (empty($toInsertIds)) {
+            return response()->json([
+                'message'     => 'Tidak ada produk baru untuk ditambahkan.',
+                'added_count' => 0,
+                'data' => []
+            ], 200);
+        }
+
+        // 3. Bulk-fetch MasterBarang
+        $masterItems = MasterBarang::whereIn('id_master_barang', $toInsertIds)
+            ->get(['id_master_barang', 'harga_karton_pabrik'])
+            ->keyBy('id_master_barang');
+
+        $now     = now();
+        $records = [];
+
+        foreach ($toInsertIds as $pid) {
+            $records[] = [
+                'id_master_barang'    => $pid,
+                'id_user_distributor' => $distributorId,
+                'harga_distributor'   => $masterItems[$pid]->harga_karton_pabrik,
+                'stok_karton'         => 10,
+                'created_at'          => $now,
+                'updated_at'          => $now,
+            ];
+        }
+
+        // 4. Bulk insert
+        BarangDistributor::insert($records);
+
+        // 5. Response JSON
+        return response()->json([
+            'message'     => 'Produk berhasil ditambahkan.',
+            'added_count' => count($records),
+            'data'        => $records,
+        ], 201);
     }
 }

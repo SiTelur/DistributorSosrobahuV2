@@ -71,8 +71,9 @@ Route::middleware(['auth:sanctum', 'role:distributor'])->group(function () {
     Route::get('distributor/nota-distributor/{idNota}/pdf', [OrderDistributorController::class, 'notaDistributorPdf']);
 
     Route::get('/distributor/pengaturan-harga', [HargaDistributorController::class, "pengaturanHargaAPI"]);
-    Route::post('/distributor/pengaturan-harga', [HargaDistributorController::class, "updateHargaAPI"]);
-    Route::post('/distributor/barang-baru', [HargaDistributorController::class, "getNewBarangAPI"]);
+    Route::post('/distributor/pengaturan-harga/{id}', [HargaDistributorController::class, "updateHargaAPI"]);
+    Route::get('/distributor/barang-baru', [HargaDistributorController::class, "getNewBarangAPI"]);
+    Route::post('/distributor/barang-baru', [HargaDistributorController::class, "addNewBarangAPI"]);
 });
 
 Route::post('/agen/login', [LoginAgenController::class, 'loginAgenAPI']);
