@@ -179,7 +179,7 @@ class HargaDistributorController extends Controller
 
         // ambil produk yang belum ada, hanya kolom yang diperlukan
         $newProducts = MasterBarang::whereNotIn('id_master_barang', $existingIds)
-            ->select('id_master_barang', 'nama_rokok', 'harga_karton_pabrik') // contoh kolom
+            ->select('id_master_barang', 'nama_rokok', 'harga_karton_pabrik', 'gambar') // contoh kolom
             ->get();
 
         // kembalikan JSON
