@@ -117,21 +117,29 @@ class HargaAgenController extends Controller
         $existingIds = BarangAgen::where('id_user_agen', $idUserAgen)
             ->pluck('id_master_barang');
 
-        // Ambil semua barang agen beserta nama rokok lewat JOIN (tanpa paginate)
-        $rokokAgens = BarangAgen::join('master_barang', 'tbl_barang_agen.id_master_barang', '=', 'master_barang.id_master_barang')
-            ->where('tbl_barang_agen.id_user_agen', $idUserAgen)
-            ->orderByDesc('tbl_barang_agen.id_master_barang')
-            ->get([
-                'tbl_barang_agen.*',
-                'master_barang.nama_rokok'
-            ]);
+        $items = BarangAgen::with('masterBarang:id_master_barang,nama_rokok,harga_karton_pabrik,gambar')
+            ->where('id_user_agen', $idUserAgen)
+            ->get();
 
-        // Hitung jumlah produk baru yang belum dimiliki agen
-        $newProductsCount = MasterBarang::whereNotIn('id_master_barang', $existingIds)
-            ->count();
+        // 3. Hitung produk baru yang belum ada di list distributor
+        $existingIds      = $items->pluck('id_master_barang')->all();
+        $newProductsCount = MasterBarang::whereNotIn('id_master_barang', $existingIds)->count();
+
+        // 4. Bentuk payload JSON
+        $data = $items->map(function ($d) {
+            return [
+                'id'               => $d->id_barang_agen,
+                'id_master_barang' => $d->id_master_barang,
+                'harga'            => $d->harga_agen,
+                'gambar'      => optional($d->masterBarang)->gambar,
+                'harga_pabrik'      => optional($d->masterBarang)->harga_karton_pabrik,
+                'nama_rokok'       => optional($d->masterBarang)->nama_rokok,
+            ];
+        });
+
 
         return response()->json([
-            'rokokAgens'       => $rokokAgens,
+            'rokokAgens'       => $data,
             'newProductsCount' => $newProductsCount,
         ]);
     }
