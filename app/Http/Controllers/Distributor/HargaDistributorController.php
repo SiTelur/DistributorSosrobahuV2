@@ -109,7 +109,7 @@ class HargaDistributorController extends Controller
         $id_user_distributor = $request->user()->currentAccessToken()->user_id;
 
         // 2. Eager-load masterBarang untuk menghindari N+1
-        $items = BarangDistributor::with('masterBarang:id_master_barang,nama_rokok,harga_karton_pabrik')
+        $items = BarangDistributor::with('masterBarang:id_master_barang,nama_rokok,harga_karton_pabrik,gambar')
             ->where('id_user_distributor', $id_user_distributor)
             ->get();
 
@@ -123,6 +123,7 @@ class HargaDistributorController extends Controller
                 'id'               => $d->id_barang_distributor,
                 'id_master_barang' => $d->id_master_barang,
                 'harga'            => $d->harga_distributor,
+                'gambar'      => optional($d->masterBarang)->gambar,
                 'harga_pabrik'      => optional($d->masterBarang)->harga_karton_pabrik,
                 'nama_rokok'       => optional($d->masterBarang)->nama_rokok,
             ];
