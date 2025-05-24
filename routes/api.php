@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Agen\HargaAgenController;
 use App\Http\Controllers\Agen\LoginAgenController;
 use App\Http\Controllers\Agen\OrderAgenController;
 use App\Http\Controllers\Agen\PesananMasukAgenController;
@@ -88,6 +89,11 @@ Route::middleware(['auth:sanctum', 'role:agen'])->group(function () {
     Route::post('/agen/order', [OrderAgenController::class, 'storeOrder']);
     Route::get('/agen/riwayatOrder', [OrderAgenController::class, 'riwayatOrderAPI']);
     Route::get('agen/nota-agen/{idNota}/pdf', [OrderAgenController::class, 'notaAgenPdf']);
+
+    Route::get('/agen/pengaturan-harga', [HargaAgenController::class, 'pengaturanHargaAPI']);
+    Route::put('/agen/pengaturan-harga/{id}', [HargaAgenController::class, "updateHargaAPI"]);
+    Route::get('/agen/barang-baru', [HargaAgenController::class, "getNewBarangAPI"]);
+    Route::post('/agen/barang-baru', [HargaAgenController::class, "addNewBarangAPI"]);
 });
 
 Route::post('/sales/login', [LoginSalesController::class, 'loginSalesAPI']);
