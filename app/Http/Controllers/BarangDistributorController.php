@@ -222,12 +222,19 @@ class BarangDistributorController extends Controller
             ->get();
 
         // Mengelompokkan pesanan berdasarkan bulan dan total omset per bulan
-        $pesananPerBulan = $pesananMasuks->groupBy(fn($item) => Carbon::parse($item->tanggal)->format('Y-m'))
+        $raw = OrderAgen::where('id_user_distributor', $id_user_distributor)
+            ->where('status_pemesanan', 1)
+            ->get()
+            ->groupBy(fn($item) => Carbon::parse($item->tanggal)->format('Y-m'))
             ->map(fn($group) => [
-                'pesanan' => $group,
-                'total_omset' => $group->sum('total'),
+                'pesanan'      => $group->values(),         // koleksi Eloquent, nanti di‐serialize otomatis
+                'total_omset'  => $group->sum('total'),
                 'total_karton' => $group->sum('jumlah'),
-            ]);
+            ])
+            ->toArray();   // jadi PHP array keyed by "YYYY-MM"
+
+        // 2. Cast ke object agar JSON-nya {} bukan []
+        $pesananPerBulan = (object) $raw;
 
         // Mengambil total stok dan produk terjual dalam satu query per kategori
         $orderDetails = DB::table('order_detail_distributor')
