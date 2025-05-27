@@ -9,6 +9,7 @@ use App\Models\OrderDistributor;
 use Illuminate\Support\Facades\DB;
 use App\Models\OrderAgen;
 use App\Models\UserAgen;
+use App\Models\UserSales;
 use Carbon\Carbon;
 
 class BarangDistributorController extends Controller
@@ -292,6 +293,18 @@ class BarangDistributorController extends Controller
         // Mengambil jumlah sales dari user_agen
         $totalAgen = UserAgen::where('id_user_distributor', $id_user_distributor)->count();
 
+
+        $agenIds = UserAgen::where('id_user_distributor', $id_user_distributor)->pluck('id_user_distributor');
+
+        // 2. Get user IDs under those agents
+        $userIds = UserAgen::whereIn('id_user_agen', $agenIds)->pluck('id_user_agen');
+
+        // 3. Count distinct users from those IDs who have made sales
+        $userSalesCount = UserSales::whereIn('id_user_sales', $userIds)
+            ->distinct('id_user_sales')
+            ->count('id_user_sales');
+
+
         // Mengembalikan response JSON
         return response()->json([
             'produkData' => $produkData,
@@ -301,7 +314,8 @@ class BarangDistributorController extends Controller
             'totalAgen' => $totalAgen,
             'pesananPerBulan' => $pesananPerBulan,
             'availableYears' => $availableYears,
-            'nama_distributor'   => $namaDistributor
+            'nama_distributor'   => $namaDistributor,
+            'totalSales' => $userSalesCount
         ]);
     }
 
