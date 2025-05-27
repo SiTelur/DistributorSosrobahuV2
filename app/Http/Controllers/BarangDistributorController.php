@@ -296,13 +296,13 @@ class BarangDistributorController extends Controller
 
         $agenIds = UserAgen::where('id_user_distributor', $id_user_distributor)->pluck('id_user_distributor');
 
-        // 2. Get user IDs under those agents
-        $userIds = UserAgen::whereIn('id_user_agen', $agenIds)->pluck('id_user_agen');
+        // // 2. Get user IDs under those agents
+        // $userIds = UserAgen::whereIn('id_user_agen', $agenIds)->pluck('id_user_agen');
 
-        // 3. Count distinct users from those IDs who have made sales
-        $userSalesCount = UserSales::whereIn('id_user_sales', $userIds)
-            ->distinct('id_user_sales')
-            ->count('id_user_sales');
+        // // 3. Count distinct users from those IDs who have made sales
+        // $userSalesCount = UserSales::whereIn('id_user', $userIds)
+        //     ->distinct('id_user')
+        //     ->count('id_user');
 
 
         // Mengembalikan response JSON
@@ -315,7 +315,7 @@ class BarangDistributorController extends Controller
             'pesananPerBulan' => $pesananPerBulan,
             'availableYears' => $availableYears,
             'nama_distributor'   => $namaDistributor,
-            'totalSales' => $userSalesCount
+            'totalSales' => $agenIds
         ]);
     }
 
