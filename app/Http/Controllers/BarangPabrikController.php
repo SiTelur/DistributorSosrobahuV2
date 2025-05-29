@@ -290,6 +290,9 @@ class BarangPabrikController extends Controller
         // Mengambil jumlah distributor dari tabel user_distributor
         $totalDistributor = DB::table('user_distributor')->count();
 
+        $totalAgen = DB::table('user_agen')->count();
+
+        $totalSales = DB::table('user_sales')->count();
         // Kirim data ke view
         // return view('pabrik.dashboard', [
         //     'barangPabriks' => $barangPabriks,
@@ -316,6 +319,8 @@ class BarangPabrikController extends Controller
             'totalDistributor'  => $totalDistributor,
             'pesananPerbulan'  => $pesananPerBulan,
             'nama_pabrik' => $namaLengkapPabrik,
+            'totalAgen' => $totalAgen,
+            'totalSales' => $totalSales
 
         ]);
     }
