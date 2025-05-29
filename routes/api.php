@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Agen\HargaAgenController;
 use App\Http\Controllers\Agen\LoginAgenController;
 use App\Http\Controllers\Agen\OrderAgenController;
 use App\Http\Controllers\Agen\PesananMasukAgenController;
@@ -9,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PabrikLoginAPIController;
 use App\Http\Controllers\BarangPabrikController;
+use App\Http\Controllers\Distributor\HargaDistributorController;
 use App\Http\Controllers\Distributor\LoginDistributorController;
 use App\Http\Controllers\Distributor\OrderDistributorController;
 use App\Http\Controllers\Distributor\PesananMasukDistributorController;
@@ -19,6 +21,7 @@ use App\Http\Controllers\Sales\DaftarTokoController;
 use App\Http\Controllers\Sales\KunjunganTokoController;
 use App\Http\Controllers\Sales\LoginSalesController;
 use App\Http\Controllers\Sales\OrderSaleController;
+use App\Models\OrderDistributor;
 use App\Models\OrderSale;
 
 /*
@@ -51,6 +54,7 @@ Route::middleware(['auth:sanctum', 'role:pabrik'])->group(function () {
     Route::post('/pabrik/restock', [RestockPabrikController::class, 'storeAPI']);
 
     Route::get('/pabrik/riwayatPabrik', [RestockPabrikController::class, 'riwayatRestockAPI']);
+    Route::get('pabrik/nota-pabrik/{idNota}/pdf', [RestockPabrikController::class, 'notaPabrikPdf']);
 });
 
 
@@ -63,7 +67,14 @@ Route::middleware(['auth:sanctum', 'role:distributor'])->group(function () {
 
 
     Route::post("/distributor/order", [OrderDistributorController::class, 'storeOrderAPI']);
+    Route::get("/distributor/pilihBarang", [BarangPabrikController::class, 'listBarangPabrikDistributorAPI']);
     Route::get("/distributor/riwayatOrder", [OrderDistributorController::class, 'listRiwayatOrderAPI']);
+    Route::get('distributor/nota-distributor/{idNota}/pdf', [OrderDistributorController::class, 'notaDistributorPdf']);
+
+    Route::get('/distributor/pengaturan-harga', [HargaDistributorController::class, "pengaturanHargaAPI"]);
+    Route::put('/distributor/pengaturan-harga/{id}', [HargaDistributorController::class, "updateHargaAPI"]);
+    Route::get('/distributor/barang-baru', [HargaDistributorController::class, "getNewBarangAPI"]);
+    Route::post('/distributor/barang-baru', [HargaDistributorController::class, "addNewBarangAPI"]);
 });
 
 Route::post('/agen/login', [LoginAgenController::class, 'loginAgenAPI']);
@@ -73,9 +84,16 @@ Route::middleware(['auth:sanctum', 'role:agen'])->group(function () {
     Route::get('/agen/pesananMasuk', [PesananMasukAgenController::class, 'pesananMasukAgenAPI']);
     Route::get('/agen/pesananMasuk/{idPesanan}', [PesananMasukAgenController::class, 'detailPesananMasukAgenAPI']);
     Route::post('/agen/pesananMasuk/{idPesanan}', [PesananMasukAgenController::class, 'updateStatusPesananAPI']);
+    Route::get("/agen/pilihBarang", [BarangDistributorController::class, 'listBarangDistributorAgenAPI']);
 
     Route::post('/agen/order', [OrderAgenController::class, 'storeOrder']);
     Route::get('/agen/riwayatOrder', [OrderAgenController::class, 'riwayatOrderAPI']);
+    Route::get('agen/nota-agen/{idNota}/pdf', [OrderAgenController::class, 'notaAgenPdf']);
+
+    Route::get('/agen/pengaturan-harga', [HargaAgenController::class, 'pengaturanHargaAPI']);
+    Route::put('/agen/pengaturan-harga/{id}', [HargaAgenController::class, "updateHargaAPI"]);
+    Route::get('/agen/barang-baru', [HargaAgenController::class, "getNewBarangAPI"]);
+    Route::post('/agen/barang-baru', [HargaAgenController::class, "addNewBarangAPI"]);
 });
 
 Route::post('/sales/login', [LoginSalesController::class, 'loginSalesAPI']);
@@ -95,4 +113,5 @@ Route::middleware(['auth:sanctum', 'role:sales'])->group(function () {
     Route::get('/sales/kunjungan/{id_toko}', [KunjunganTokoController::class, 'getKunjunganTokoAPI']);
     Route::post('/sales/kunjungan/{id_toko}', [KunjunganTokoController::class, 'insertKunjunganTokoAPI']);
     Route::post('/sales/kunjungan/update/{id_kunjungan_toko}', [KunjunganTokoController::class, 'updateKunjunganTokoAPI']);
+    Route::get('sales/nota-sales/{idNota}/pdf', [OrderSaleController::class, 'notaSalesPdf']);
 });

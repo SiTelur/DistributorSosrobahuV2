@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use App\Models\MasterBarang;
 use Illuminate\Support\Facades\DB;
 use App\Models\RestockDetailPabrik;
+use App\Models\UserPabrik;
 use App\Models\OrderDistributor;
 use Carbon\Carbon;
 
@@ -193,6 +194,11 @@ class BarangPabrikController extends Controller
             ->where('order_distributor.status_pemesanan', 1)
             ->get();
 
+        $idUserPabrik = auth()->id();
+
+        $namaLengkapPabrik = DB::table('user_pabrik')
+            ->where('id_user_pabrik', $idUserPabrik)
+            ->value('nama_lengkap');
 
         // Mengelompokkan pesanan berdasarkan bulan dan melakukan penotalan omset per bulan
         $pesananPerBulan = $pesananMasuks->groupBy(function ($item) {
@@ -277,9 +283,9 @@ class BarangPabrikController extends Controller
             ->value('nama_rokok') : 'Tidak ada data';
 
         // Total pendapatan dari pesanan distributor yang selesai
-        $totalPendapatan = DB::table('order_distributor')
+        $totalPendapatan = intval(DB::table('order_distributor')
             ->where('status_pemesanan', 1)
-            ->sum('total');
+            ->sum('total'));
 
         // Mengambil jumlah distributor dari tabel user_distributor
         $totalDistributor = DB::table('user_distributor')->count();
@@ -308,35 +314,47 @@ class BarangPabrikController extends Controller
             'totalPendapatan'   => $totalPendapatan,
             'topProductName'    => $topProductName,
             'totalDistributor'  => $totalDistributor,
-            'pesananPerbulan'  => $pesananPerBulan
+            'pesananPerbulan'  => $pesananPerBulan,
+            'nama_pabrik' => $namaLengkapPabrik,
 
         ]);
     }
 
     public function restockBarangAPI()
     {
+        // Retrieve all records from the MasterBarang model
         $barangPabriks = MasterBarang::all();
-        // Loop through each BarangPabrik item
-        foreach ($barangPabriks as $barangPabrik) {
-            // Get the id_master_barang for the current BarangPabrik item
-            $namaProduk = $barangPabrik->id_master_barang;
 
-            // Query the master_barang table for the corresponding record
-            $orderValue = DB::table('master_barang')->where('id_master_barang', $namaProduk)->first();
-
-            // Store the nama_rokok in the array
-            if ($orderValue) {
-                $namaRokokList[] = $orderValue->nama_rokok;
-                $gambarRokokList[] = $orderValue->gambar;
-            } else {
-                $namaRokokList[] = null; // If no matching record is found
-                $gambarRokokList[] = null;
-            }
+        // Check if the collection is empty
+        if ($barangPabriks->isEmpty()) {
+            return response()->json(['message' => 'No records found in master_barang'], 404);
         }
 
 
-        // Pass both barangPabriks and namaRokokList to the view
-        // return view('distributor.pesan', compact('barangPabriks', 'namaRokokList', 'gambarRokokList'));
-        return response()->json([$barangPabriks]);
+
+        // Prepare the response data
+        $responseData = [
+            'barangPabriks' => $barangPabriks,
+        ];
+
+        // Return the response as JSON
+        return response()->json($responseData);
+    }
+
+    public function listBarangPabrikDistributorAPI()
+    {
+        $barangPabriks = MasterBarang::all();
+
+        $pabrik = UserPabrik::select('nama_lengkap', 'nama_bank', 'no_rek')->first();
+
+        // 3. Gabungkan ke dalam response JSON
+        return response()->json([
+            'barangPabriks' => $barangPabriks,
+            'pabrik'        => [
+                'nama_lengkap' => $pabrik->nama_lengkap,
+                'nama_bank' => $pabrik->nama_bank,
+                'no_rek'    => $pabrik->no_rek,
+            ],
+        ], 200);
     }
 }

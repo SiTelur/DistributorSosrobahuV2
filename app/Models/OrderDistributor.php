@@ -27,4 +27,19 @@ class OrderDistributor extends Model
         'bukti_transfer',
         'status_pemesanan',
     ];
+
+    public function detailDistributor()
+    {
+        return $this->hasMany(OrderDetailDistributor::class, 'id_order', 'id_order');
+    }
+
+    public function pabrik()
+    {
+        return $this->belongsTo(UserPabrik::class, 'id_user_pabrik');
+    }
+
+    public function distributor()
+    {
+        return $this->belongsTo(UserDistributor::class, 'id_user_distributor');
+    }
 }

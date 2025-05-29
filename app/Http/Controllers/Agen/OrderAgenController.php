@@ -8,8 +8,10 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 use App\Models\OrderAgen;
+use App\Models\MasterBarang;
 use App\Models\OrderDetailAgen;
 use App\Models\UserDistributor;
+use Barryvdh\DomPDF\Facade\Pdf;  // alias “PDF”
 
 class OrderAgenController extends Controller
 {
@@ -263,7 +265,7 @@ class OrderAgenController extends Controller
                 'total_items' => 'required|integer|min:1',
                 'total_amount' => 'required|numeric|min:1',
                 'quantities' => 'required|array',
-                'quantities.*.id_master_barang' => 'required|integer|exists:tbl_barang_disitributor,id_master_barang',
+                'quantities.*.id_barang_distributor' => 'required|integer|exists:tbl_barang_disitributor,id_barang_distributor',
                 'quantities.*.quantity' => 'required|integer|min:1',
                 'payment_proof' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
             ]);
@@ -297,24 +299,23 @@ class OrderAgenController extends Controller
             $orderDetails = [];
             foreach ($validated['quantities'] as $item) {
                 $product = DB::table('tbl_barang_disitributor')
-                    ->where('id_master_barang', $item['id_master_barang'])
+                    ->where('id_barang_distributor', $item['id_barang_distributor'])
                     ->first();
 
-                if (!$product) {
-                    return response()->json(['error' => 'Product not found'], 404);
-                }
-
+                // jika struktur tabel order_detail_agen kamu butuh kolom id_master_barang
                 $orderDetails[] = [
-                    'id_order' => $order->id_order,
+                    'id_order'           => $order->id_order,
                     'id_user_distributor' => $id_user_distributor,
-                    'id_user_agen' => $id_user_agen,
-                    'id_master_barang' => $item['id_master_barang'],
+                    'id_user_agen'       => $id_user_agen,
+
+                    // <<< ini dia: pakai id_master_barang, bukan id_barang_distributor
+                    'id_master_barang'   => $product->id_master_barang,
                     'id_barang_distributor' => $product->id_barang_distributor,
-                    'jumlah_produk' => $item['quantity'],
-                    'jumlah_harga_item' => $product->harga_distributor * $item['quantity'],
-                    'harga_tetap_nota' => $product->harga_distributor,
-                    'created_at' => now(),
-                    'updated_at' => now(),
+                    'jumlah_produk'      => $item['quantity'],
+                    'jumlah_harga_item'  => $product->harga_distributor * $item['quantity'],
+                    'harga_tetap_nota'   => $product->harga_distributor,
+                    'created_at'         => now(),
+                    'updated_at'         => now(),
                 ];
             }
 
@@ -323,7 +324,7 @@ class OrderAgenController extends Controller
 
             return response()->json([
                 'message' => 'Pesanan berhasil dikirim!',
-                'order_id' => $order->id_order,
+                'id_order' => $order->id_order,
                 'order_details' => $orderDetails
             ], 201);
         } catch (\Exception $e) {
@@ -333,28 +334,103 @@ class OrderAgenController extends Controller
 
     public function riwayatOrderAPI(Request $request)
     {
-        try {
-            $id_user_agen = $request->user()->currentAccessToken()->user_id;
+        $id_user_agen = $request->user()
+            ->currentAccessToken()
+            ->user_id;
 
-            // Get orders with formatted date
-            $orderAgens = OrderAgen::where('id_user_agen', $id_user_agen)
-                ->orderByDesc('id_order')
-                ->paginate(10)
-                ->through(fn($order) => [
-                    'id_order' => $order->id_order,
-                    'jumlah' => $order->jumlah,
-                    'total' => $order->total,
-                    'tanggal' => Carbon::parse($order->tanggal)->translatedFormat('d F Y'),
-                    'bukti_transfer' => $order->bukti_transfer,
-                    'status_pemesanan' => $order->status_pemesanan
-                ]);
+        // 1. Ambil orders & paginate
+        $orders = OrderAgen::where('id_user_agen', $id_user_agen)
+            ->orderByDesc('id_order')
+            ->paginate(10);
 
-            return response()->json([
-                'message' => 'Riwayat pesanan berhasil diambil',
-                'orders' => $orderAgens
-            ], 200);
-        } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
-        }
+        // 2. Transform setiap item di collection
+        $orders->getCollection()->transform(function ($order) {
+            // a) Ambil detail per order dari tabel order_detail_agen
+            $detail = DB::table('order_detail_agen')
+                ->where('id_order', $order->id_order)
+                ->get();
+
+            // b) Ambil data master_barang sesuai id_master_barang
+            $masterData = MasterBarang::whereIn(
+                'id_master_barang',
+                $detail->pluck('id_master_barang')->toArray()
+            )
+                ->get()
+                ->keyBy('id_master_barang');
+
+            // c) Gabungkan detail + info produk
+            $detailProduk = $detail->map(function ($d) use ($masterData) {
+                $brg = $masterData[$d->id_master_barang] ?? null;
+                if (! $brg) return null;
+
+                return [
+                    'id_master_barang'    => $brg->id_master_barang,
+                    'nama_rokok'         => $brg->nama_rokok,         // sesuaikan nama kolom di MasterBarang
+                    'harga_karton_pabrik'        => $brg->harga_karton_pabrik,       // sesuaikan kolom harga
+                    'quantity'            => $d->jumlah_produk,        // sesuaikan kolom di detail
+                ];
+            })
+                ->filter()   // buang null
+                ->values(); // reindex
+
+            // d) Bentuk response untuk tiap order
+            return [
+                'id_order'          => $order->id_order,
+                'jumlah'            => $order->jumlah,
+                'total'             => $order->total,
+                'tanggal'           => Carbon::parse($order->tanggal)
+                    ->translatedFormat('d F Y'),
+                'status_pemesanan'  => $order->status_pemesanan,
+                'bukti_transfer'    => $order->bukti_transfer,
+                'detail_produk'     => $detailProduk,
+            ];
+        });
+
+        // 3. Kembalikan JSON dengan struktur yang sama seperti distributor
+        return response()->json($orders);
+    }
+
+    public function notaAgenPdf($idNota)
+    {
+        Carbon::setLocale('id');
+
+        // Ambil header + semua relasi (detail, masterBarang, distributor, agen)
+        $order = OrderAgen::with([
+            'detailAgen.masterBarang',
+            'distributor',
+            'agen',
+        ])->where('id_order', $idNota)
+            ->firstOrFail();
+
+        // Map detail jadi array
+        $itemNota = $order->detailAgen->map(function ($d) {
+            return [
+                'nama_rokok'   => optional($d->masterBarang)->nama_rokok,
+                'harga_satuan' => $d->harga_tetap_nota,
+                'jumlah_item'  => $d->jumlah_produk,
+                'jumlah_harga' => $d->jumlah_harga_item,
+            ];
+        })->toArray();
+
+        // Susun payload
+        $notaAgen = [
+            'tanggal'           => Carbon::parse($order->tanggal)
+                ->translatedFormat('d F Y'),
+            'id_order'          => $order->id_order,
+            'nama_distributor'  => $order->distributor->nama_lengkap,
+            'no_distributor'    => $order->distributor->no_telp,
+            'nama_agen'         => $order->agen->nama_lengkap,
+            'no_telp'           => $order->agen->no_telp,
+            'total_item'        => $order->jumlah,
+            'total_harga'       => $order->total,
+            'item_nota'         => $itemNota,
+        ];
+
+
+        $pdf = Pdf::loadView('agen.nota-cetak', compact('notaAgen'))
+            ->setPaper('a4', 'portrait');
+
+        // Keluarkan sebagai download
+        return $pdf->download("nota-agen-{$idNota}.pdf");
     }
 }

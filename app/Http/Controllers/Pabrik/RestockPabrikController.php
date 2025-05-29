@@ -9,6 +9,7 @@ use Carbon\Carbon;
 use App\Models\RestockPabrik;
 use App\Models\RestockDetailPabrik;
 use App\Models\MasterBarang;
+use Barryvdh\DomPDF\Facade\Pdf;  // alias “PDF”
 
 class RestockPabrikController extends Controller
 {
@@ -73,6 +74,40 @@ class RestockPabrikController extends Controller
 
         //Menampilkan hasil nota format json
         //return response()->json($notaPabrik);
+    }
+
+    public function notaPabrikPdf($idNota)
+    {
+        // Ambil data
+        $restockPabrik = RestockPabrik::where('id_restock', $idNota)->firstOrFail();
+        $namaPabrik    = DB::table('user_pabrik')
+            ->where('id_user_pabrik', $restockPabrik->id_user_pabrik)
+            ->first();
+        $detailItems   = RestockDetailPabrik::where('id_restock', $idNota)->get()
+            ->map(fn($d) => [
+                'nama_rokok'   => DB::table('master_barang')
+                    ->where('id_master_barang', $d->id_master_barang)
+                    ->value('nama_rokok'),
+                'jumlah_item'  => $d->jumlah_produk,
+            ]);
+
+        $notaPabrik = [
+            'tanggal'    => $restockPabrik->tanggal,
+            'id_restock' => $restockPabrik->id_restock,
+            'nama_pabrik' => $namaPabrik->nama_lengkap,
+            'total_item' => $restockPabrik->jumlah,
+            'item_nota'  => $detailItems,
+        ];
+
+        // Generate PDF
+        $pdf = Pdf::loadView('pabrik.cetak-restock', compact('notaPabrik'))
+            ->setPaper('a4', 'portrait');
+
+        // Keluarkan sebagai download
+        return $pdf->download("nota-pabrik-{$idNota}.pdf");
+
+        // Jika Anda lebih suka streaming:
+        // return $pdf->stream("nota-pabrik-{$idNota}.pdf");
     }
 
     // Fitur Restock Pabrik
@@ -206,7 +241,7 @@ class RestockPabrikController extends Controller
         return response()->json([
             'message' => 'Pesanan berhasil dikirim!',
             'status' => 'success',
-            'order' => $id_restock // Assuming $order contains the order details
+            'success' => true
         ]);
     }
 
@@ -221,12 +256,43 @@ class RestockPabrikController extends Controller
                     ->orWhere(DB::raw("CONCAT(jumlah, ' Karton')"), 'like', "%{$search}%");
             })
             ->orderByDesc('id_restock')
-            ->paginate(10)
-            ->through(fn($restockPabrik) => [
-                'id_restock' => 'RST1234' . $restockPabrik->id_restock,
-                'tanggal' => Carbon::parse($restockPabrik->tanggal)->format('d/m/Y'),
-                'jumlah' => $restockPabrik->jumlah . ' Karton',
-            ]);
+            ->paginate(10);
+
+        $restockPabriks->getCollection()->transform(function ($restock) {
+
+            $detailBarang = DB::table('restock_detail_pabrik')
+                ->where('id_restock', $restock->id_restock)
+                ->get();
+            $idMasterBarangList = $detailBarang->pluck('id_master_barang')->toArray();
+
+            // Ambil data produk dari master_barang
+            $masterBarangData = MasterBarang::whereIn('id_master_barang', $idMasterBarangList)
+                ->get()
+                ->keyBy('id_master_barang');
+
+            // Gabungkan detail barang + info produk
+            $detailProduk = $detailBarang->map(function ($detail) use ($masterBarangData) {
+                $barang = $masterBarangData[$detail->id_master_barang] ?? null;
+
+                if (!$barang) return null;
+
+                return [
+                    'id_master_barang' => $barang->id_master_barang,
+                    'nama_rokok' => $barang->nama_rokok,
+                    'harga_karton_pabrik' => $barang->harga_karton_pabrik,
+                    'jumlah' => $detail->jumlah_produk,
+                ];
+            })->filter(); // Buang yang null jika tidak ditemukan
+
+            return [
+                // 'id_restock' => 'RST1234' . $restock->id_restock,
+                'id_restock' => $restock->id_restock,
+                'tanggal' => Carbon::parse($restock->tanggal)->format('d/m/Y'),
+                'jumlah' => $restock->jumlah . ' Karton',
+                'detail_produk' => $detailProduk->values()
+            ];
+        });
+
 
         return response()->json($restockPabriks);
     }

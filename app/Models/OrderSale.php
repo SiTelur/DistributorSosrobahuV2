@@ -27,4 +27,19 @@ class OrderSale extends Model
     {
         return $this->belongsTo(UserSales::class, 'id_user_sales', 'id_user_sales');
     }
+
+    public function detailSales()
+    {
+        return $this->hasMany(OrderDetailSales::class, 'id_order', 'id_order');
+    }
+
+    public function agen()
+    {
+        return $this->belongsTo(UserAgen::class, 'id_user_agen');
+    }
+
+    public function sales()
+    {
+        return $this->belongsTo(UserSales::class, 'id_user_sales');
+    }
 }

@@ -9,6 +9,7 @@ use App\Models\OrderDistributor;
 use Illuminate\Support\Facades\DB;
 use App\Models\OrderAgen;
 use App\Models\UserAgen;
+use App\Models\UserSales;
 use Carbon\Carbon;
 
 class BarangDistributorController extends Controller
@@ -203,6 +204,10 @@ class BarangDistributorController extends Controller
         $barangDistributors = BarangDistributor::where('id_user_distributor', $id_user_distributor)
             ->with('masterBarang:id_master_barang,nama_rokok,gambar')
             ->get();
+        $namaDistributor = DB::table('user_distributor')
+            ->where('id_user_distributor', $id_user_distributor)
+            ->value('nama_lengkap');
+
 
         // Mengambil semua tahun dari tabel pesanan agen berdasarkan tanggal pesanan
         $availableYears = OrderAgen::where('id_user_distributor', $id_user_distributor)
@@ -218,12 +223,19 @@ class BarangDistributorController extends Controller
             ->get();
 
         // Mengelompokkan pesanan berdasarkan bulan dan total omset per bulan
-        $pesananPerBulan = $pesananMasuks->groupBy(fn($item) => Carbon::parse($item->tanggal)->format('Y-m'))
+        $raw = OrderAgen::where('id_user_distributor', $id_user_distributor)
+            ->where('status_pemesanan', 1)
+            ->get()
+            ->groupBy(fn($item) => Carbon::parse($item->tanggal)->format('Y-m'))
             ->map(fn($group) => [
-                'pesanan' => $group,
-                'total_omset' => $group->sum('total'),
+                'pesanan'      => $group->values(),         // koleksi Eloquent, nanti di‐serialize otomatis
+                'total_omset'  => $group->sum('total'),
                 'total_karton' => $group->sum('jumlah'),
-            ]);
+            ])
+            ->toArray();   // jadi PHP array keyed by "YYYY-MM"
+
+        // 2. Cast ke object agar JSON-nya {} bukan []
+        $pesananPerBulan = (object) $raw;
 
         // Mengambil total stok dan produk terjual dalam satu query per kategori
         $orderDetails = DB::table('order_detail_distributor')
@@ -274,12 +286,21 @@ class BarangDistributorController extends Controller
             ->value('nama_rokok') : 'Tidak ada data';
 
         // Total pendapatan dari pesanan agen
-        $totalPendapatan = OrderAgen::where('id_user_distributor', $id_user_distributor)
+        $totalPendapatan = intval(OrderAgen::where('id_user_distributor', $id_user_distributor)
             ->where('status_pemesanan', 1)
-            ->sum('total');
+            ->sum('total'));
 
         // Mengambil jumlah sales dari user_agen
         $totalAgen = UserAgen::where('id_user_distributor', $id_user_distributor)->count();
+
+
+        $agenIds = UserAgen::where('id_user_distributor', $id_user_distributor)->pluck('id_user_agen');
+
+        // 2. Get user IDs under those agents
+        $userIds = UserSales::whereIn('id_user_agen', $agenIds)->pluck('id_user_sales')->count();
+
+        //3. Count distinct users from those IDs who have made sales
+
 
         // Mengembalikan response JSON
         return response()->json([
@@ -289,7 +310,57 @@ class BarangDistributorController extends Controller
             'topProductName' => $topProductName,
             'totalAgen' => $totalAgen,
             'pesananPerBulan' => $pesananPerBulan,
-            'availableYears' => $availableYears
+            'availableYears' => $availableYears,
+            'nama_distributor'   => $namaDistributor,
+            'totalSales' => $userIds
         ]);
+    }
+
+    public function listBarangDistributorAgenAPI(Request $request)
+    {
+        // 1) Ambil id agen dari token
+        $idUserAgen = $request->user()
+            ->currentAccessToken()
+            ->user_id;
+
+        // 2) Dapatkan id distributor dari tabel user_agen
+        $idUserDistributor = DB::table('user_agen')
+            ->where('id_user_agen', $idUserAgen)
+            ->value('id_user_distributor');
+
+        if (! $idUserDistributor) {
+            return response()->json([
+                'error' => 'Distributor untuk agen ini tidak ditemukan'
+            ], 404);
+        }
+
+        // 3) Ambil semua barang milik distributor itu, join ke master_barang untuk nama & harga pabrik
+        $barangDistributor = DB::table('tbl_barang_disitributor as bd')
+            ->join('master_barang as mb', 'bd.id_master_barang', '=', 'mb.id_master_barang')
+            ->where('bd.id_user_distributor', $idUserDistributor)
+            ->select([
+                'bd.id_barang_distributor',
+                'mb.nama_rokok',
+                'mb.gambar',
+                'bd.harga_distributor',
+                'bd.stok_karton'
+            ])
+            ->get();
+
+        // 4) Ambil info pabrik (anggap hanya ada satu)
+        $distributor = DB::table('user_distributor')
+            ->select('nama_lengkap', 'nama_bank', 'no_rek')
+            ->where('id_user_distributor', $idUserDistributor)
+            ->first();
+
+        // 5) Kembalikan response yang sama bentuknya dengan contoh distributor
+        return response()->json([
+            'barangDistributor' => $barangDistributor,
+            'distributor'            => [
+                'nama_lengkap' => $distributor->nama_lengkap,
+                'nama_bank'    => $distributor->nama_bank,
+                'no_rek'       => $distributor->no_rek,
+            ],
+        ], 200);
     }
 }

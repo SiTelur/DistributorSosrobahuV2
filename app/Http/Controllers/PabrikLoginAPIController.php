@@ -21,11 +21,10 @@ class PabrikLoginAPIController extends Controller
         if ($user === null || !Hash::check($request->password, $user->password)) {
             return response()->json(['message' => 'Username atau password salah.'], 401);
         }
-
-        $token = $user->createToken('sosrobahu_token', ['role:pabrik']);
+        $expiration = config('sanctum.expiration');
+        $token = $user->createToken('sosrobahu_token', ['role:pabrik'], now()->addMinutes($expiration));
         $accessToken = $token->accessToken;
-
-        $accessToken->forceFill(['user_id' => $user->id_user_pabrik, 'expires_at' => Carbon::now()->addDays(1)])->save();
+        $accessToken->forceFill(['user_id' => $user->id_user_pabrik])->save();
 
         return response()->json([
             'message' => 'Login berhasil.',

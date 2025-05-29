@@ -39,9 +39,8 @@ class OrderDetailDistributor extends Model
         'jumlah_harga_item' => 'integer',
     ];
 
-    // Relasi ke model OrderDistributor
-    public function orderDistributor()
+    public function masterBarang()
     {
-        return $this->belongsTo(OrderDistributor::class, 'id_order', 'id_order');
+        return $this->belongsTo(MasterBarang::class, 'id_master_barang');
     }
 }

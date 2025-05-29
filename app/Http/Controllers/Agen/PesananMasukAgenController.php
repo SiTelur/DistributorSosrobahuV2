@@ -114,30 +114,25 @@ class PesananMasukAgenController extends Controller
     public function pesananMasukAgenAPI(Request $request)
     {
         $id_user_agen = $request->user()->currentAccessToken()->user_id;
-        // Mengambil pesanan dengan mengurutkan berdasarkan ID terbesar
 
-        $pesananMasuks = OrderSale::with('userSales')
-            ->where('id_user_agen', $id_user_agen)
+        // Ambil pesanan agen, urut descending, paginasi 10
+        $pesananMasuks = OrderSale::where('id_user_agen', $id_user_agen)
             ->orderByDesc('id_order')
             ->paginate(10);
 
-        // Transformasi data sebelum dikembalikan sebagai JSON
-        $pesananMasuks->transform(function ($pesanan) {
-            return [
-                'id_order' => $pesanan->id_order,
-                'tanggal' => Carbon::parse($pesanan->tanggal)->format('d F Y'),
-                'nama_sales' => optional($pesanan->userSales)->nama_lengkap ?? 'Tidak Ditemukan',
-                'total_harga' => $pesanan->total_harga,
-                'status_pemesanan' => $pesanan->status_pemesanan,
-            ];
-        });
+        // Loop untuk format tanggal & ambil nama sales via query manual
+        foreach ($pesananMasuks as $pesanan) {
+            $pesanan->tanggal = Carbon::parse($pesanan->tanggal);
+            $namaSales = DB::table('user_sales')
+                ->where('id_user_sales', $pesanan->id_user_sales)
+                ->value('nama_lengkap');
+            $pesanan->nama_sales = $namaSales ?: 'Tidak Ditemukan';
+        }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Data transaksi agen berhasil diambil.',
-            'data' => $pesananMasuks
-        ]);
+        // Return JSON paginasi seperti distributor
+        return response()->json(data: $pesananMasuks);
     }
+
 
     public function detailPesananMasukAgenAPI($idPesanan)
     {

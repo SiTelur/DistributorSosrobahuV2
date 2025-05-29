@@ -48,4 +48,9 @@ class OrderDetailSales extends Model
     {
         return $this->belongsTo(OrderSale::class, 'id_order', 'id_order');
     }
+
+    public function masterBarang()
+    {
+        return $this->belongsTo(MasterBarang::class, 'id_master_barang');
+    }
 }

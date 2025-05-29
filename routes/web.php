@@ -136,7 +136,7 @@ Route::middleware('auth.distributor')->group(function () {
     // DASHBOARD DISTRIBUTOR
     Route::get('/distributor/dashboard', [BarangDistributorController::class, 'stockbarang'])->name('dashboard-distributor');
     Route::get('/distributor/update-ranking', [LoginDistributorController::class, 'updateRanking'])->name('distributor.updateRanking');
-    
+
     // PENGATURAN AKUN AGEN
     Route::get('/pengaturan-agen', [AkunAgenController::class, 'index'])->name('pengaturanAgen');
     Route::put('/pengaturan-agen/update/{id}', [AkunAgenController::class, 'update'])->name('pengaturanAgen.update');

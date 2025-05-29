@@ -107,4 +107,151 @@ class HargaAgenController extends Controller
         // Redirect dengan pesan sukses
         return redirect()->route('pengaturanHarga')->with('success', 'Akun sales berhasil diperbarui.');
     }
+
+    public function pengaturanHargaAPI(Request $request)
+    {
+        $idUserAgen = $request->user()->currentAccessToken()->user_id;
+
+
+        // Ambil semua ID master_barang yang sudah dimiliki agen
+        $existingIds = BarangAgen::where('id_user_agen', $idUserAgen)
+            ->pluck('id_master_barang');
+
+        $items = BarangAgen::with('masterBarang:id_master_barang,nama_rokok,harga_karton_pabrik,gambar')
+            ->where('id_user_agen', $idUserAgen)
+            ->get();
+
+        // 3. Hitung produk baru yang belum ada di list distributor
+        $existingIds      = $items->pluck('id_master_barang')->all();
+        $newProductsCount = MasterBarang::whereNotIn('id_master_barang', $existingIds)->count();
+
+        // 4. Bentuk payload JSON
+        $data = $items->map(function ($d) {
+            return [
+                'id'               => $d->id_barang_agen,
+                'id_master_barang' => $d->id_master_barang,
+                'harga'            => $d->harga_agen,
+                'gambar'      => optional($d->masterBarang)->gambar,
+                'harga_pabrik'      => optional($d->masterBarang)->harga_karton_pabrik,
+                'nama_rokok'       => optional($d->masterBarang)->nama_rokok,
+            ];
+        });
+
+
+        return response()->json([
+            'rokokAgens'       => $data,
+            'newProductsCount' => $newProductsCount,
+        ]);
+    }
+
+    public function getNewBarangAPI(Request $request)
+    {
+        $idUserAgen = $request->user()->currentAccessToken()->user_id;
+
+        // ambil semua id_master_barang yang sudah dipakai distributor ini
+        $existingIds = BarangAgen::where('id_user_agen', $idUserAgen)
+            ->pluck('id_master_barang');
+
+        // ambil produk yang belum ada, hanya kolom yang diperlukan
+        $newProducts = MasterBarang::whereNotIn('id_master_barang', $existingIds)
+            ->select('id_master_barang', 'nama_rokok', 'harga_karton_pabrik', 'gambar') // contoh kolom
+            ->get();
+
+        // kembalikan JSON
+        return response()->json([
+            'success' => true,
+            'count'   => $newProducts->count(),
+            'data'    => $newProducts
+        ], 200);
+    }
+
+    public function updateHargaAPI(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'prices' => 'required|integer|min:0',
+        ]);
+
+        $id_user_agen = $request->user()->currentAccessToken()->user_id;
+        $updated   = [];
+
+
+        $setting = BarangAgen::where('id_barang_agen', $id)
+            ->where('id_user_agen', $id_user_agen)
+            ->first();
+
+        if (! $setting) {
+            return response()->json([
+                'message' => 'Data tidak ditemukan atau tidak punya akses.'
+            ], 404);
+        }
+
+        $setting->harga_agen = $validated['prices'];
+        $setting->save();
+
+        // 4) Kembalikan JSON
+        return response()->json([
+            'message' => 'Harga berhasil diperbarui.',
+            'data'    => [
+                'id'                => $setting->id_barang_agen,
+                'harga_agen' => $setting->harga_agen,
+            ],
+        ], 200);
+    }
+
+    public function addNewBarangAPI(Request $request)
+    {
+        // 1. Validasi input
+        $validated = $request->validate([
+            'products'   => 'required|array',
+            'products.*' => 'integer|exists:master_barang,id_master_barang',
+        ]);
+
+        $id_user_agen  = $request->user()->currentAccessToken()->user_id;
+
+
+        // 2. (Opsional) hindari duplikat: cari produk yang sudah terdaftar
+        $existing = BarangAgen::where('id_user_agen', $id_user_agen)
+            ->whereIn('id_master_barang', $validated['products'])
+            ->pluck('id_master_barang')
+            ->all();
+
+        $toInsertIds = array_diff($validated['products'], $existing);
+
+        if (empty($toInsertIds)) {
+            return response()->json([
+                'message'     => 'Tidak ada produk baru untuk ditambahkan.',
+                'added_count' => 0,
+                'data' => []
+            ], 200);
+        }
+
+        // 3. Bulk-fetch MasterBarang
+        $masterItems = MasterBarang::whereIn('id_master_barang', $toInsertIds)
+            ->get(['id_master_barang', 'harga_karton_pabrik'])
+            ->keyBy('id_master_barang');
+
+        $now     = now();
+        $records = [];
+
+        foreach ($toInsertIds as $pid) {
+            $records[] = [
+                'id_master_barang'    => $pid,
+                'id_user_agen' => $id_user_agen,
+                'harga_agen'   => $masterItems[$pid]->harga_karton_pabrik,
+                'stok_karton'         => 10,
+                'created_at'          => $now,
+                'updated_at'          => $now,
+            ];
+        }
+
+        // 4. Bulk insert
+        BarangAgen::insert($records);
+
+        // 5. Response JSON
+        return response()->json([
+            'message'     => 'Produk berhasil ditambahkan.',
+            'added_count' => count($records),
+            'data'        => $records,
+        ], 201);
+    }
 }

@@ -118,31 +118,21 @@ class PesananMasukDistributorController extends Controller
 
     public function pesananMasukDistributorAPI(Request $request)
     {
-        // Mengambil semua pesanan dan mengonversi tanggal ke format Carbon
         $id_user_distributor = $request->user()->currentAccessToken()->user_id;
         $pesananMasuks = OrderAgen::where('id_user_distributor', $id_user_distributor)
             ->orderByDesc('id_order')
-            ->with('userAgen:id_user_agen,nama_lengkap') // Eager load userAgen
             ->paginate(10);
 
-        // Format response as JSON
-        return response()->json([
-            'pesananMasuks' => $pesananMasuks->map(function ($pesanan) {
-                return [
-                    'id_order' => $pesanan->id_order,
-                    'tanggal' => Carbon::parse($pesanan->tanggal)->format('Y-m-d'),
-                    'nama_agen' => $pesanan->userAgen->nama_lengkap ?? 'Tidak Ditemukan',
-                    'total' => $pesanan->total,
-                    'status_pemesanan' => $pesanan->status_pemesanan,
-                ];
-            }),
-            'pagination' => [
-                'current_page' => $pesananMasuks->currentPage(),
-                'last_page' => $pesananMasuks->lastPage(),
-                'per_page' => $pesananMasuks->perPage(),
-                'total' => $pesananMasuks->total(),
-            ],
-        ]);
+        // Ubah tiap item: format tanggal & ambil nama agen via query
+        foreach ($pesananMasuks as $pesananMasuk) {
+            $pesananMasuk->tanggal = Carbon::parse($pesananMasuk->tanggal);
+            $namaAgen = DB::table('user_agen')
+                ->where('id_user_agen', $pesananMasuk->id_user_agen)
+                ->value('nama_lengkap');
+            $pesananMasuk->nama_agen = $namaAgen ?: 'Tidak Ditemukan';
+        }
+
+        return response()->json(data: $pesananMasuks);
     }
 
     public function detailPesananMasukDistributorAPI($idPesanan)

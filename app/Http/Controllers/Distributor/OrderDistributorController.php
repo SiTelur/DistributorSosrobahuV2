@@ -10,6 +10,7 @@ use App\Models\OrderDistributor;
 use App\Models\OrderDetailDistributor;
 use App\Models\MasterBarang;
 use App\Models\UserPabrik;
+use Barryvdh\DomPDF\Facade\Pdf;  // alias “PDF”
 
 
 class OrderDistributorController extends Controller
@@ -253,69 +254,73 @@ class OrderDistributorController extends Controller
     public function storeOrderAPI(Request $request)
     {
         try {
-            // Validate request
+            // 1. Validate request dan simpan hasilnya ke $validated
             $validated = $request->validate([
-                'total_items' => 'required|integer|min:1',
-                'total_amount' => 'required|numeric|min:1',
-                'quantities' => 'required|array', // Ensure quantities is an array
-                'quantities.*.id_master_barang' => 'required|integer|exists:master_barang,id_master_barang',
-                'quantities.*.quantity' => 'required|integer|min:1',
-                'payment_proof' => 'nullable|image|mimes:jpeg,png,jpg|max:2048'
+                'total_items'                     => 'required|integer|min:1',
+                'total_amount'                    => 'required|numeric|min:1',
+                'quantities'                      => 'required|array',
+                'quantities.*.id_master_barang'   => 'required|integer|exists:master_barang,id_master_barang',
+                'quantities.*.quantity'           => 'required|integer|min:1',
+                'payment_proof'                   => 'nullable|image|mimes:jpeg,png,jpg|max:2048'
             ]);
 
-            // Handle file upload
+            // 2. Handle file upload
             $path = $request->hasFile('payment_proof')
                 ? $request->file('payment_proof')->store('bukti_transfer', 'public')
                 : null;
 
-            // Get distributor ID from token
+            // 3. Ambil distributor ID dari token
             $id_user_distributor = $request->user()->currentAccessToken()->user_id;
 
-            // Start transaction to ensure data consistency
             DB::beginTransaction();
 
-            // Create order and get its ID
+            // 4. Buat Order pakai data tervalidasi
             $order = OrderDistributor::create([
                 'id_user_distributor' => $id_user_distributor,
-                'jumlah' => $request->total_items,
-                'total' => $request->total_amount,
-                'tanggal' => now(),
-                'bukti_transfer' => $path,
-                'status_pemesanan' => 0, // 0 = Pending
+                'jumlah'              => $validated['total_items'],
+                'total'               => $validated['total_amount'],
+                'tanggal'             => now(),
+                'bukti_transfer'      => $path,
+                'status_pemesanan'    => 0,
             ]);
 
-            // Prepare order details for bulk insert
+            // 5. Loop pada $validated['quantities']
             $orderDetails = [];
-            foreach ($request->input('quantities') as $productId => $quantity) {
-                $product = DB::table('master_barang')->where('id_master_barang', $productId)->first();
+            foreach ($validated['quantities'] as $item) {
+                $productId = $item['id_master_barang'];
+                $quantity  = $item['quantity'];
+
+                $product = DB::table('master_barang')
+                    ->where('id_master_barang', $productId)
+                    ->first();
+
+                // (Validator sudah cek exists, tapi safety check boleh dipertahankan)
                 if (!$product) {
                     throw new \Exception("Produk dengan ID $productId tidak ditemukan.");
                 }
 
                 $orderDetails[] = [
-                    'id_order' => $order->id_order,
-                    'id_user_pabrik' => 1,
+                    'id_order'            => $order->id_order,
+                    'id_user_pabrik'      => 1,
                     'id_user_distributor' => $id_user_distributor,
-                    'id_master_barang' => $productId,
-                    'jumlah_produk' => $quantity,
-                    'jumlah_harga_item' => $product->harga_karton_pabrik * $quantity,
-                    'created_at' => now(),
-                    'updated_at' => now(),
+                    'id_master_barang'    => $productId,
+                    'jumlah_produk'       => $quantity,
+                    'jumlah_harga_item'   => $product->harga_karton_pabrik * $quantity,
+                    'created_at'          => now(),
+                    'updated_at'          => now(),
                 ];
             }
 
-            // Bulk insert order details
+            // 6. Bulk insert detail
             OrderDetailDistributor::insert($orderDetails);
 
-            // Commit transaction
             DB::commit();
 
-            // Return JSON response
             return response()->json([
-                'success' => true,
-                'message' => 'Pesanan berhasil dikirim!',
-                'order' => $order,
-                'order_details' => $orderDetails,
+                'success'        => true,
+                'message'        => 'Pesanan berhasil dikirim!',
+                'order'          => $order,
+                'order_details'  => $orderDetails,
             ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -323,33 +328,110 @@ class OrderDistributorController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Terjadi kesalahan saat memproses pesanan.',
-                'error' => $e->getMessage(),
+                'error'   => $e->getMessage(),
             ], 500);
         }
     }
 
     public function listRiwayatOrderAPI(Request $request)
     {
-        $id_user_distributor = $request->user()->currentAccessToken()->user_id;
+        $id_user_distributor = $request->user()
+            ->currentAccessToken()
+            ->user_id;
 
-        // Ambil data pesanan dengan format tanggal yang sudah dikonversi
-        $orderDistributors = OrderDistributor::where('id_user_distributor', $id_user_distributor)
+        // Ambil orders & paginate
+        $orders = OrderDistributor::where('id_user_distributor', $id_user_distributor)
             ->orderByDesc('id_order')
-            ->paginate(10)
-            ->through(fn($order) => [
-                'id_order' => $order->id_order,
-                'jumlah' => $order->jumlah,
-                'total' => $order->total,
-                'tanggal' => Carbon::parse($order->tanggal)->translatedFormat('d F Y'),
-                'status_pemesanan' => $order->status_pemesanan,
-                'bukti_transfer' => $order->bukti_transfer,
-            ]);
+            ->paginate(10);
 
-        // Mengembalikan data sebagai JSON response
-        return response()->json([
-            'success' => true,
-            'message' => 'Riwayat pesanan berhasil diambil.',
-            'data' => $orderDistributors
-        ]);
+        // Transform setiap item di collection
+        $orders->getCollection()->transform(function ($order) {
+            // 1) Ambil detail per order
+            $detail = DB::table('order_detail_distributor')
+                ->where('id_order', $order->id_order)
+                ->get();
+
+            // 2) Ambil data master_barang sesuai id
+            $masterData = MasterBarang::whereIn(
+                'id_master_barang',
+                $detail->pluck('id_master_barang')->toArray()
+            )
+                ->get()
+                ->keyBy('id_master_barang');
+
+            // 3) Gabungkan detail + info produk
+            $detailProduk = $detail->map(function ($d) use ($masterData) {
+                $brg = $masterData[$d->id_master_barang] ?? null;
+                if (! $brg) return null;
+
+                return [
+                    'id_master_barang'       => $brg->id_master_barang,
+                    'nama_rokok'             => $brg->nama_rokok,
+                    'harga_karton_pabrik'    => $brg->harga_karton_pabrik,
+                    'quantity'               => $d->jumlah_produk,  // sesuaikan nama kolom di tabel detail
+                ];
+            })
+                ->filter()   // buang null
+                ->values(); // reindex
+
+            // 4) Bentuk response untuk tiap order
+            return [
+                'id_order'          => $order->id_order,
+                'jumlah'            => $order->jumlah,
+                'total'             => $order->total,
+                'tanggal'           => Carbon::parse($order->tanggal)
+                    ->translatedFormat('d F Y'),
+                'status_pemesanan'  => $order->status_pemesanan,
+                'bukti_transfer'    => $order->bukti_transfer,
+                'detail_produk'     => $detailProduk,
+            ];
+        });
+
+        return response()->json($orders);
+    }
+
+
+    public function notaDistributorPdf($idNota)
+    {
+
+        Carbon::setLocale('id');
+
+        // ambil OrderDistributor sekaligus relasi yang dibutuhkan
+        $order = OrderDistributor::with([
+            'detailDistributor.masterBarang',
+            'pabrik',
+            'distributor',
+        ])->where('id_order', $idNota)->firstOrFail();
+
+        // format item nota
+        $itemNota = $order->detailDistributor->map(function ($detail) {
+            $mb = $detail->masterBarang;
+            return [
+                'nama_rokok'   => $mb ? $mb->nama_rokok : null,
+                'harga_satuan' => $mb ? $mb->harga_karton_pabrik : null,
+                'jumlah_item'  => $detail->jumlah_produk,
+                'jumlah_harga' => $detail->jumlah_harga_item,
+            ];
+        })->toArray();
+
+        // susun payload
+        $notaDistributor = [
+            'tanggal'           => Carbon::parse($order->tanggal)->translatedFormat('d F Y'),
+            'id_order'          => $order->id_order,
+            'nama_pabrik'       => $order->pabrik,
+            'no_pabrik'         => $order->pabrik,
+            'nama_distributor'  => $order->distributor->nama_lengkap,
+            'no_telp'           => $order->distributor->no_telp,
+            'total_item'        => $order->jumlah,
+            'total_harga'       => $order->total,
+            'item_nota'         => $itemNota,
+        ];
+
+
+        $pdf = Pdf::loadView('distributor.nota-cetak', compact('notaDistributor'))
+            ->setPaper('a4', 'portrait');
+
+        // Keluarkan sebagai download
+        return $pdf->download("nota-distributor-{$idNota}.pdf");
     }
 }
