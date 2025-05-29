@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Agen\HargaAgenController;
 use App\Http\Controllers\Agen\LoginAgenController;
 use App\Http\Controllers\Agen\OrderAgenController;
 use App\Http\Controllers\Agen\PesananMasukAgenController;
@@ -9,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PabrikLoginAPIController;
 use App\Http\Controllers\BarangPabrikController;
+use App\Http\Controllers\Distributor\HargaDistributorController;
 use App\Http\Controllers\Distributor\LoginDistributorController;
 use App\Http\Controllers\Distributor\OrderDistributorController;
 use App\Http\Controllers\Distributor\PesananMasukDistributorController;
@@ -68,6 +70,11 @@ Route::middleware(['auth:sanctum', 'role:distributor'])->group(function () {
     Route::get("/distributor/pilihBarang", [BarangPabrikController::class, 'listBarangPabrikDistributorAPI']);
     Route::get("/distributor/riwayatOrder", [OrderDistributorController::class, 'listRiwayatOrderAPI']);
     Route::get('distributor/nota-distributor/{idNota}/pdf', [OrderDistributorController::class, 'notaDistributorPdf']);
+
+    Route::get('/distributor/pengaturan-harga', [HargaDistributorController::class, "pengaturanHargaAPI"]);
+    Route::put('/distributor/pengaturan-harga/{id}', [HargaDistributorController::class, "updateHargaAPI"]);
+    Route::get('/distributor/barang-baru', [HargaDistributorController::class, "getNewBarangAPI"]);
+    Route::post('/distributor/barang-baru', [HargaDistributorController::class, "addNewBarangAPI"]);
 });
 
 Route::post('/agen/login', [LoginAgenController::class, 'loginAgenAPI']);
@@ -82,6 +89,11 @@ Route::middleware(['auth:sanctum', 'role:agen'])->group(function () {
     Route::post('/agen/order', [OrderAgenController::class, 'storeOrder']);
     Route::get('/agen/riwayatOrder', [OrderAgenController::class, 'riwayatOrderAPI']);
     Route::get('agen/nota-agen/{idNota}/pdf', [OrderAgenController::class, 'notaAgenPdf']);
+
+    Route::get('/agen/pengaturan-harga', [HargaAgenController::class, 'pengaturanHargaAPI']);
+    Route::put('/agen/pengaturan-harga/{id}', [HargaAgenController::class, "updateHargaAPI"]);
+    Route::get('/agen/barang-baru', [HargaAgenController::class, "getNewBarangAPI"]);
+    Route::post('/agen/barang-baru', [HargaAgenController::class, "addNewBarangAPI"]);
 });
 
 Route::post('/sales/login', [LoginSalesController::class, 'loginSalesAPI']);

@@ -9,6 +9,7 @@ use App\Models\OrderDistributor;
 use Illuminate\Support\Facades\DB;
 use App\Models\OrderAgen;
 use App\Models\UserAgen;
+use App\Models\UserSales;
 use Carbon\Carbon;
 
 class BarangDistributorController extends Controller
@@ -222,12 +223,19 @@ class BarangDistributorController extends Controller
             ->get();
 
         // Mengelompokkan pesanan berdasarkan bulan dan total omset per bulan
-        $pesananPerBulan = $pesananMasuks->groupBy(fn($item) => Carbon::parse($item->tanggal)->format('Y-m'))
+        $raw = OrderAgen::where('id_user_distributor', $id_user_distributor)
+            ->where('status_pemesanan', 1)
+            ->get()
+            ->groupBy(fn($item) => Carbon::parse($item->tanggal)->format('Y-m'))
             ->map(fn($group) => [
-                'pesanan' => $group,
-                'total_omset' => $group->sum('total'),
+                'pesanan'      => $group->values(),         // koleksi Eloquent, nanti di‐serialize otomatis
+                'total_omset'  => $group->sum('total'),
                 'total_karton' => $group->sum('jumlah'),
-            ]);
+            ])
+            ->toArray();   // jadi PHP array keyed by "YYYY-MM"
+
+        // 2. Cast ke object agar JSON-nya {} bukan []
+        $pesananPerBulan = (object) $raw;
 
         // Mengambil total stok dan produk terjual dalam satu query per kategori
         $orderDetails = DB::table('order_detail_distributor')
@@ -285,6 +293,15 @@ class BarangDistributorController extends Controller
         // Mengambil jumlah sales dari user_agen
         $totalAgen = UserAgen::where('id_user_distributor', $id_user_distributor)->count();
 
+
+        $agenIds = UserAgen::where('id_user_distributor', $id_user_distributor)->pluck('id_user_agen');
+
+        // 2. Get user IDs under those agents
+        $userIds = UserSales::whereIn('id_user_agen', $agenIds)->pluck('id_user_sales')->count();
+
+        //3. Count distinct users from those IDs who have made sales
+
+
         // Mengembalikan response JSON
         return response()->json([
             'produkData' => $produkData,
@@ -294,7 +311,8 @@ class BarangDistributorController extends Controller
             'totalAgen' => $totalAgen,
             'pesananPerBulan' => $pesananPerBulan,
             'availableYears' => $availableYears,
-            'nama_distributor'   => $namaDistributor
+            'nama_distributor'   => $namaDistributor,
+            'totalSales' => $userIds
         ]);
     }
 
