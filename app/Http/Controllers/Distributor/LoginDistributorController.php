@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Distributor;
 
 use App\Http\Controllers\Controller;
 use App\Models\UserDistributor;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -120,7 +121,7 @@ class LoginDistributorController extends Controller
         $token = $user->createToken('sosrobahu_token', ['role:distributor'], now()->addMinutes($expiration));
         $accessToken = $token->accessToken;
 
-        $accessToken->forceFill(['user_id' => $user->id_user_distributor])->save();
+        $accessToken->forceFill(['user_id' => $user->id_user_distributor, 'expires_at' => Carbon::now()->addDays(1)])->save();
 
         return response()->json([
             'message' => 'Login berhasil.',
